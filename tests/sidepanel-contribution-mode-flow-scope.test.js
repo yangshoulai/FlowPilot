@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const source = fs.readFileSync('sidepanel/contribution-mode.js', 'utf8');
+const flowRegistrySource = fs.readFileSync('shared/flow-registry.js', 'utf8');
+const contributionRegistrySource = fs.readFileSync('shared/contribution-registry.js', 'utf8');
 
 function createElement() {
   return {
@@ -19,7 +21,10 @@ function createElement() {
       },
     },
     setAttribute() {},
-    addEventListener() {},
+    listeners: {},
+    addEventListener(type, handler) {
+      this.listeners[type] = handler;
+    },
   };
 }
 
@@ -37,12 +42,14 @@ test('contribution mode manager does not project openai-only ui state into kiro 
   const rowVpsUrl = createElement();
   const dom = {
     btnContributionMode: createElement(),
-    contributionModePanel: createElement(),
-    contributionModeText: createElement(),
-    contributionModeBadge: createElement(),
+    accountContributionPanel: createElement(),
+    accountContributionText: createElement(),
+    accountContributionBadge: createElement(),
+    contributionPrimaryStatusLabel: createElement(),
+    contributionSecondaryStatusLabel: createElement(),
     contributionOauthStatus: createElement(),
     contributionCallbackStatus: createElement(),
-    contributionModeSummary: createElement(),
+    accountContributionSummary: createElement(),
     inputContributionNickname: createElement(),
     inputContributionQq: createElement(),
     btnStartContribution: createElement(),
@@ -57,7 +64,9 @@ test('contribution mode manager does not project openai-only ui state into kiro 
       getLatestState: () => ({
         activeFlowId: 'kiro',
         flowId: 'kiro',
-        contributionMode: true,
+        accountContributionEnabled: true,
+        supportsAccountContribution: true,
+        contributionAdapterId: 'kiro-builder-id',
         contributionSource: 'cpa',
       }),
     },
@@ -80,11 +89,107 @@ test('contribution mode manager does not project openai-only ui state into kiro 
 
   manager.render();
 
-  assert.equal(dom.contributionModePanel.hidden, true);
+  assert.equal(dom.accountContributionPanel.hidden, false);
+  assert.equal(dom.contributionPrimaryStatusLabel.textContent, '账号产物');
+  assert.equal(dom.contributionSecondaryStatusLabel.textContent, '提交');
+  assert.equal(dom.contributionOauthStatus.textContent, '等待账号产物');
   assert.equal(dom.selectPanelMode.disabled, false);
-  assert.equal(dom.btnContributionMode.disabled, true);
-  assert.equal(dom.btnContributionMode.title, '当前 flow 不支持贡献模式');
-  assert.equal(dom.btnStartContribution.disabled, true);
-  assert.equal(dom.btnOpenContributionUpload.disabled, true);
+  assert.equal(dom.selectPanelMode.value, '');
+  assert.equal(dom.btnContributionMode.disabled, false);
+  assert.equal(dom.btnContributionMode.title, '打开当前 flow 教程；当前已在贡献模式');
+  assert.equal(dom.btnStartContribution.disabled, false);
+  assert.equal(dom.btnOpenContributionUpload.disabled, false);
+  assert.equal(dom.btnOpenContributionUpload.textContent, '查看当前 flow 贡献说明');
   assert.equal(rowVpsUrl.classList.hiddenState, false);
+});
+
+test('combined contribution tutorial button opens current flow page and enables current flow adapter', async () => {
+  const windowObject = {};
+  const api = new Function(
+    'self',
+    'window',
+    'setTimeout',
+    'clearTimeout',
+    `${flowRegistrySource}; ${contributionRegistrySource}; ${source}; return window.SidepanelContributionMode;`
+  )(windowObject, windowObject, setTimeout, clearTimeout);
+
+  let latestState = {
+    activeFlowId: 'kiro',
+    flowId: 'kiro',
+    accountContributionEnabled: false,
+    supportsAccountContribution: true,
+    contributionAdapterId: '',
+    kiroTargetId: 'kiro-rs',
+  };
+  const openedUrls = [];
+  const sentMessages = [];
+  const dom = {
+    btnContributionMode: createElement(),
+    accountContributionPanel: createElement(),
+    accountContributionText: createElement(),
+    accountContributionBadge: createElement(),
+    contributionPrimaryStatusLabel: createElement(),
+    contributionSecondaryStatusLabel: createElement(),
+    contributionOauthStatus: createElement(),
+    contributionCallbackStatus: createElement(),
+    accountContributionSummary: createElement(),
+    inputContributionNickname: createElement(),
+    inputContributionQq: createElement(),
+    btnStartContribution: createElement(),
+    btnOpenContributionUpload: createElement(),
+    btnExitContributionMode: createElement(),
+    btnOpenAccountRecords: createElement(),
+    selectPanelMode: createElement(),
+  };
+  const manager = api.createContributionModeManager({
+    state: {
+      getLatestState: () => latestState,
+    },
+    dom,
+    helpers: {
+      applySettingsState(nextState) {
+        latestState = nextState;
+      },
+      updatePanelModeUI() {},
+      updateAccountRunHistorySettingsUI() {},
+      updateConfigMenuControls() {},
+      closeConfigMenu() {},
+      closeAccountRecordsPanel() {},
+      isModeSwitchBlocked() {
+        return false;
+      },
+      openExternalUrl(url) {
+        openedUrls.push(url);
+      },
+      showToast() {},
+    },
+    runtime: {
+      sendMessage: async (message) => {
+        sentMessages.push(message);
+        return {
+          state: {
+            ...latestState,
+            accountContributionEnabled: true,
+            contributionAdapterId: message.payload.adapterId,
+          },
+        };
+      },
+    },
+    constants: {
+      contributionPortalUrl: 'https://flowpilot.qlhazycoder.top',
+    },
+  });
+
+  manager.bindEvents();
+  await dom.btnContributionMode.listeners.click();
+
+  assert.deepEqual(openedUrls, ['https://flowpilot.qlhazycoder.top/tutorial?flow=kiro&target=kiro-rs']);
+  assert.equal(sentMessages[0].type, 'SET_ACCOUNT_CONTRIBUTION_MODE');
+  assert.deepEqual(sentMessages[0].payload, {
+    enabled: true,
+    flowId: 'kiro',
+    adapterId: 'kiro-builder-id',
+  });
+  assert.equal(latestState.accountContributionEnabled, true);
+  assert.equal(latestState.contributionAdapterId, 'kiro-builder-id');
 });

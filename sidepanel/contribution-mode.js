@@ -81,6 +81,14 @@
     }
 
     function getContributionSourceLabel(currentState = getLatestState()) {
+      if (getActiveFlowId(currentState) !== 'openai') {
+        const rootScope = typeof window !== 'undefined' ? window : globalThis;
+        const registry = rootScope.MultiPageContributionRegistry || {};
+        const adapter = typeof registry.getAdapterDefinition === 'function'
+          ? registry.getAdapterDefinition(currentState.contributionAdapterId || '', { flowId: getActiveFlowId(currentState) })
+          : null;
+        return normalizeString(adapter?.label) || '账号贡献';
+      }
       return getContributionSource(currentState) === CONTRIBUTION_SOURCE_SUB2API ? 'SUB2API' : 'CPA';
     }
 
@@ -88,12 +96,54 @@
       return normalizeString(currentState.activeFlowId || currentState.flowId).toLowerCase() || 'openai';
     }
 
+    function getActiveTargetId(currentState = getLatestState()) {
+      const activeFlowId = getActiveFlowId(currentState);
+      if (activeFlowId === 'kiro') {
+        return normalizeString(currentState.kiroTargetId || currentState.targetId || 'kiro-rs').toLowerCase() || 'kiro-rs';
+      }
+      return normalizeString(currentState.openaiIntegrationTargetId || currentState.panelMode || currentState.targetId || 'cpa').toLowerCase() || 'cpa';
+    }
+
+    function getContributionTutorialEntry(currentState = getLatestState()) {
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const registry = rootScope.MultiPageContributionRegistry || {};
+      const activeFlowId = getActiveFlowId(currentState);
+      if (typeof registry.getContributionTutorialEntry === 'function') {
+        return registry.getContributionTutorialEntry(activeFlowId, {
+          adapterId: currentState.contributionAdapterId,
+          portalBaseUrl: contributionPortalUrl,
+          targetId: getActiveTargetId(currentState),
+        });
+      }
+      return {
+        flowId: activeFlowId,
+        targetId: getActiveTargetId(currentState),
+        contributionAdapterId: normalizeString(currentState.contributionAdapterId),
+        portalUrl: normalizeString(contributionPortalUrl),
+      };
+    }
+
+    function getContributionEntryAdapterId(currentState = getLatestState()) {
+      return normalizeString(getContributionTutorialEntry(currentState)?.contributionAdapterId);
+    }
+
     function isContributionModeAvailable(currentState = getLatestState()) {
-      return getActiveFlowId(currentState) === 'openai';
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const registry = rootScope.MultiPageFlowCapabilities?.createFlowCapabilityRegistry?.({
+        defaultFlowId: 'openai',
+      }) || null;
+      if (registry?.resolveSidepanelCapabilities) {
+        return Boolean(registry.resolveSidepanelCapabilities({
+          activeFlowId: getActiveFlowId(currentState),
+          panelMode: currentState?.panelMode,
+          state: currentState,
+        })?.canShowContributionMode);
+      }
+      return Boolean(currentState?.supportsAccountContribution || getActiveFlowId(currentState) === 'openai');
     }
 
     function isContributionModeEnabled(currentState = getLatestState()) {
-      return isContributionModeAvailable(currentState) && Boolean(currentState.contributionMode);
+      return isContributionModeAvailable(currentState) && Boolean(currentState.accountContributionEnabled);
     }
 
     function hasActiveContributionSession(currentState = getLatestState()) {
@@ -127,10 +177,10 @@
         dom.btnContributionMode.title = '当前 flow 不支持贡献模式';
         return;
       }
-      dom.btnContributionMode.disabled = enabled || blocked;
-      dom.btnContributionMode.title = blocked
-        ? '当前流程运行中，暂时不能切换贡献模式'
-        : (enabled ? '当前已在贡献模式' : '进入贡献模式');
+      dom.btnContributionMode.disabled = actionInFlight;
+      dom.btnContributionMode.title = enabled
+        ? '打开当前 flow 教程；当前已在贡献模式'
+        : (blocked ? '打开当前 flow 教程；当前流程运行中暂时不能进入贡献模式' : '打开当前 flow 教程并进入贡献模式');
     }
 
     function stopPolling() {
@@ -163,6 +213,23 @@
     }
 
     function getOauthStatusText(currentState = getLatestState()) {
+      if (getActiveFlowId(currentState) !== 'openai') {
+        const flowRuntime = getCurrentFlowContributionRuntime(currentState);
+        const status = normalizeString(flowRuntime.status).toLowerCase();
+        if (status === 'submitting') {
+          return '正在提交账号产物';
+        }
+        if (status === 'submitted') {
+          return '账号产物已提交';
+        }
+        if (status === 'skipped') {
+          return '账号产物未就绪';
+        }
+        if (status === 'error') {
+          return '账号产物提交失败';
+        }
+        return isContributionModeEnabled(currentState) ? '等待账号产物' : '未开启贡献模式';
+      }
       const status = normalizeStatus(currentState.contributionStatus);
       const hasAuthUrl = Boolean(normalizeString(currentState.contributionAuthUrl));
       if (!normalizeString(currentState.contributionSessionId) || !hasAuthUrl) {
@@ -184,6 +251,10 @@
     }
 
     function getCallbackStatusText(currentState = getLatestState()) {
+      if (getActiveFlowId(currentState) !== 'openai') {
+        const flowRuntime = getCurrentFlowContributionRuntime(currentState);
+        return normalizeString(flowRuntime.lastMessage || flowRuntime.error) || '账号产物就绪后会自动提交';
+      }
       const status = normalizeCallbackStatus(currentState.contributionCallbackStatus);
       switch (status) {
         case 'captured':
@@ -208,6 +279,9 @@
       if (statusMessage) {
         return statusMessage;
       }
+      if (getActiveFlowId(currentState) !== 'openai') {
+        return '当前账号将用于支持项目维护。扩展会按当前 flow 的贡献适配器收集并提交账号产物，提交过程不会依赖 OpenAI OAuth 配置。';
+      }
       if (getContributionSource(currentState) === CONTRIBUTION_SOURCE_SUB2API) {
         const groupName = normalizeString(currentState.contributionTargetGroupName) || CONTRIBUTION_SUB2API_DEFAULT_GROUP_NAME;
         return `当前账号将用于支持项目维护。贡献会通过 SUB2API 完成，并固定写入 ${groupName} 分组；如检测到回调地址，扩展会自动提交并等待服务端确认。`;
@@ -215,11 +289,24 @@
       return DEFAULT_COPY;
     }
 
+    function getCurrentFlowContributionRuntime(currentState = getLatestState()) {
+      const runtime = currentState?.flowContributionRuntime;
+      if (!runtime || typeof runtime !== 'object') {
+        return {};
+      }
+      const flowRuntime = runtime[getActiveFlowId(currentState)];
+      return flowRuntime && typeof flowRuntime === 'object' ? flowRuntime : {};
+    }
+
     function getContributionPortalPageUrl() {
-      return normalizeString(contributionPortalUrl);
+      return normalizeString(getContributionTutorialEntry()?.portalUrl || contributionPortalUrl);
     }
 
     function getContributionUploadPageUrl() {
+      const currentState = getLatestState();
+      if (getActiveFlowId(currentState) !== 'openai') {
+        return normalizeString(getContributionTutorialEntry(currentState)?.portalUrl || contributionPortalUrl);
+      }
       return normalizeString(contributionUploadUrl);
     }
 
@@ -240,28 +327,27 @@
     }
 
     async function syncContributionProfile(partial = {}) {
-      const payload = {
-        nickname: normalizeString(partial.nickname),
-        qq: normalizeString(partial.qq),
-      };
-      const response = await runtime.sendMessage({
-        type: 'SET_CONTRIBUTION_PROFILE',
-        source: 'sidepanel',
-        payload,
+      const nickname = normalizeString(partial.nickname);
+      const qq = normalizeString(partial.qq);
+      if (qq && !/^\d{1,20}$/.test(qq)) {
+        throw new Error('QQ 只能填写数字，且长度不能超过 20 位。');
+      }
+      helpers.applySettingsState?.({
+        ...getLatestState(),
+        contributionNickname: nickname,
+        contributionQq: qq,
       });
-      if (response?.error) {
-        throw new Error(response.error);
-      }
-      if (response?.state) {
-        helpers.applySettingsState?.(response.state);
-      }
     }
 
     async function requestContributionMode(enabled) {
       const response = await runtime.sendMessage({
-        type: 'SET_CONTRIBUTION_MODE',
+        type: 'SET_ACCOUNT_CONTRIBUTION_MODE',
         source: 'sidepanel',
-        payload: { enabled: Boolean(enabled) },
+        payload: {
+          enabled: Boolean(enabled),
+          flowId: getActiveFlowId(),
+          adapterId: getContributionEntryAdapterId(),
+        },
       });
 
       if (response?.error) {
@@ -287,7 +373,7 @@
       pollInFlight = true;
       try {
         const response = await runtime.sendMessage({
-          type: 'POLL_CONTRIBUTION_STATUS',
+          type: 'POLL_FLOW_CONTRIBUTION_STATUS',
           source: 'sidepanel',
           payload: {
             reason: options.reason || 'sidepanel_poll',
@@ -312,7 +398,7 @@
       }
     }
 
-    async function startContributionFlow() {
+    async function startAccountContributionFlow() {
       if (typeof helpers.startContributionAutoRun !== 'function') {
         throw new Error('贡献模式尚未接入主自动流程启动能力。');
       }
@@ -323,7 +409,6 @@
         throw new Error('QQ 只能填写数字，且长度不能超过 20 位。');
       }
       await syncContributionProfile(profile);
-
       const started = await helpers.startContributionAutoRun();
       if (!started) {
         return;
@@ -348,28 +433,26 @@
       const currentState = getLatestState();
       const available = isContributionModeAvailable(currentState);
       const enabled = isContributionModeEnabled(currentState);
+      const activeFlowId = getActiveFlowId(currentState);
       const blocked = available ? isModeSwitchBlocked() : false;
       const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
       const sourceLabel = available ? getContributionSourceLabel(currentState) : '';
 
-      if (enabled && dom.selectPanelMode) {
+      if (enabled && activeFlowId === 'openai' && dom.selectPanelMode) {
         dom.selectPanelMode.value = getContributionSource(currentState);
       }
 
       helpers.updatePanelModeUI?.();
       helpers.updateAccountRunHistorySettingsUI?.();
 
-      if (dom.contributionModePanel) {
-        dom.contributionModePanel.hidden = !available || !enabled;
+      if (dom.accountContributionPanel) {
+        dom.accountContributionPanel.hidden = !available || !enabled;
       }
-      if (dom.contributionModeText) {
-        dom.contributionModeText.textContent = getSummaryText({
-          contributionSource: currentState.contributionSource,
-          contributionTargetGroupName: currentState.contributionTargetGroupName,
-        });
+      if (dom.accountContributionText) {
+        dom.accountContributionText.textContent = getSummaryText(currentState);
       }
-      if (dom.contributionModeBadge) {
-        dom.contributionModeBadge.textContent = enabled ? sourceLabel : '';
+      if (dom.accountContributionBadge) {
+        dom.accountContributionBadge.textContent = enabled ? sourceLabel : '';
       }
       if (dom.inputContributionNickname && activeElement !== dom.inputContributionNickname) {
         const nextNickname = normalizeString(currentState.contributionNickname);
@@ -386,18 +469,24 @@
       if (dom.contributionOauthStatus) {
         dom.contributionOauthStatus.textContent = getOauthStatusText(currentState);
       }
+      if (dom.contributionPrimaryStatusLabel) {
+        dom.contributionPrimaryStatusLabel.textContent = activeFlowId === 'openai' ? 'OAUTH' : '账号产物';
+      }
       if (dom.contributionCallbackStatus) {
         dom.contributionCallbackStatus.textContent = getCallbackStatusText(currentState);
       }
-      if (dom.contributionModeSummary) {
-        dom.contributionModeSummary.textContent = getSummaryText(currentState);
+      if (dom.contributionSecondaryStatusLabel) {
+        dom.contributionSecondaryStatusLabel.textContent = activeFlowId === 'openai' ? '回调' : '提交';
+      }
+      if (dom.accountContributionSummary) {
+        dom.accountContributionSummary.textContent = getSummaryText(currentState);
       }
 
-      syncContributionRows(enabled);
+      syncContributionRows(enabled && activeFlowId === 'openai');
       syncContributionButton(enabled, blocked, available);
 
       if (dom.selectPanelMode) {
-        dom.selectPanelMode.disabled = available && enabled;
+        dom.selectPanelMode.disabled = activeFlowId === 'openai' && available && enabled;
       }
 
       if (dom.btnStartContribution) {
@@ -406,6 +495,7 @@
 
       if (dom.btnOpenContributionUpload) {
         dom.btnOpenContributionUpload.disabled = !available;
+        dom.btnOpenContributionUpload.textContent = activeFlowId === 'openai' ? '已有认证文件？前往上传' : '查看当前 flow 贡献说明';
       }
 
       if (dom.btnExitContributionMode) {
@@ -441,7 +531,13 @@
         }
         render();
         try {
-          await enterContributionMode();
+          if (isContributionModeEnabled()) {
+            helpers.showToast?.('已打开当前 flow 教程。', 'info', 1800);
+          } else if (isModeSwitchBlocked()) {
+            helpers.showToast?.('已打开当前 flow 教程；当前流程运行中，暂时不能进入贡献模式。', 'warning', 2200);
+          } else {
+            await enterContributionMode();
+          }
         } catch (error) {
           helpers.showToast?.(error.message, 'error');
         } finally {
@@ -457,7 +553,7 @@
         actionInFlight = true;
         render();
         try {
-          await startContributionFlow();
+          await startAccountContributionFlow();
         } catch (error) {
           helpers.showToast?.(error.message, 'error');
         } finally {

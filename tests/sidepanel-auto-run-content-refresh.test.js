@@ -64,7 +64,7 @@ return new Function(`
 const events = [];
 const DEFAULT_ACTIVE_FLOW_ID = 'openai';
 const latestState = {
-  contributionMode: false,
+  accountContributionEnabled: false,
   activeFlowId: 'openai',
   flowId: 'openai',
   panelMode: 'cpa',
@@ -266,7 +266,7 @@ const latestState = {
   activeFlowId: 'site-a',
   panelMode: 'cpa',
   signupMethod: 'phone',
-  contributionMode: false,
+  accountContributionEnabled: false,
   phoneVerificationEnabled: true,
 };
 const inputAutoSkipFailures = { checked: false };

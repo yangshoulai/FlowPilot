@@ -59,7 +59,7 @@
       return normalizeStep7SignupMethod(state?.signupMethod) === 'phone'
         && Boolean(state?.phoneVerificationEnabled)
         && !Boolean(state?.plusModeEnabled)
-        && !Boolean(state?.contributionMode);
+        && !Boolean(state?.accountContributionEnabled);
     }
 
     function hasStep7PhoneSignupIdentity(state = {}) {

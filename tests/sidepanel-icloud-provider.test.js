@@ -84,7 +84,7 @@ test('collectSettingsPayload persists icloud target mailbox settings', () => {
   const bundle = extractFunction('collectSettingsPayload');
 
   const api = new Function(`
-let latestState = { contributionMode: false };
+let latestState = { accountContributionEnabled: false };
 const window = {};
 const PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH = 'oauth';
 const PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION = 'sub2api_codex_session';

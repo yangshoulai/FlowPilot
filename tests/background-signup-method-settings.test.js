@@ -58,7 +58,7 @@ let state = {
   signupMethod: 'phone',
   phoneVerificationEnabled: true,
   plusModeEnabled: false,
-  contributionMode: false,
+  accountContributionEnabled: false,
   resolvedSignupMethod: null,
 };
 async function getState() { return { ...state }; }

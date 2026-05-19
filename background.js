@@ -2,6 +2,7 @@
 
 importScripts(
   'shared/flow-registry.js',
+  'shared/contribution-registry.js',
   'shared/settings-schema.js',
   'shared/source-registry.js',
   'shared/flow-capabilities.js',
@@ -27,6 +28,8 @@ importScripts(
   'background/workflow-engine.js',
   'background/runtime-state.js',
   'background/kiro/state.js',
+  'background/kiro/credential-artifact.js',
+  'background/contribution/adapters/kiro-builder-id.js',
   'background/kiro/register-runner.js',
   'background/kiro/desktop-client.js',
   'background/kiro/desktop-authorize-runner.js',
@@ -694,8 +697,10 @@ const SIGNUP_METHOD_EMAIL = 'email';
 const SIGNUP_METHOD_PHONE = 'phone';
 const DEFAULT_SIGNUP_METHOD = SIGNUP_METHOD_EMAIL;
 const CONTRIBUTION_RUNTIME_DEFAULTS = self.MultiPageBackgroundContributionOAuth?.RUNTIME_DEFAULTS || {
-  contributionMode: false,
-  contributionModeExpected: false,
+  accountContributionEnabled: false,
+  accountContributionExpected: false,
+  contributionAdapterId: '',
+  flowContributionRuntime: {},
   contributionSource: CONTRIBUTION_SOURCE_SUB2API,
   contributionTargetGroupName: CONTRIBUTION_SUB2API_DEFAULT_GROUP_NAME,
   contributionNickname: '',
@@ -715,6 +720,61 @@ const CONTRIBUTION_RUNTIME_DEFAULTS = self.MultiPageBackgroundContributionOAuth?
 const CONTRIBUTION_RUNTIME_KEYS = self.MultiPageBackgroundContributionOAuth?.RUNTIME_KEYS
   || Object.keys(CONTRIBUTION_RUNTIME_DEFAULTS);
 
+function normalizeAccountContributionFlowId(value = '', fallback = DEFAULT_ACTIVE_FLOW_ID) {
+  return self.MultiPageFlowRegistry?.normalizeFlowId
+    ? self.MultiPageFlowRegistry.normalizeFlowId(value, fallback)
+    : (String(value || fallback || DEFAULT_ACTIVE_FLOW_ID).trim().toLowerCase() || DEFAULT_ACTIVE_FLOW_ID);
+}
+
+function normalizeAccountContributionAdapterId(flowId = DEFAULT_ACTIVE_FLOW_ID, adapterId = '') {
+  const normalizedFlowId = normalizeAccountContributionFlowId(flowId);
+  const contributionRegistry = self.MultiPageContributionRegistry || {};
+  if (typeof contributionRegistry.normalizeAdapterId === 'function') {
+    const normalizedAdapterId = contributionRegistry.normalizeAdapterId(adapterId);
+    if (normalizedAdapterId && contributionRegistry.hasContributionAdapter?.(normalizedFlowId, normalizedAdapterId)) {
+      return normalizedAdapterId;
+    }
+  }
+  if (typeof contributionRegistry.getDefaultContributionAdapterId === 'function') {
+    return contributionRegistry.getDefaultContributionAdapterId(normalizedFlowId) || '';
+  }
+  return normalizedFlowId === DEFAULT_ACTIVE_FLOW_ID ? 'openai-oauth' : '';
+}
+
+function assertAccountContributionAdapterAvailable(flowId = DEFAULT_ACTIVE_FLOW_ID, adapterId = '') {
+  const normalizedFlowId = normalizeAccountContributionFlowId(flowId);
+  const normalizedAdapterId = normalizeAccountContributionAdapterId(normalizedFlowId, adapterId);
+  const contributionRegistry = self.MultiPageContributionRegistry || {};
+  const hasAdapter = typeof contributionRegistry.hasContributionAdapter === 'function'
+    ? contributionRegistry.hasContributionAdapter(normalizedFlowId, normalizedAdapterId)
+    : (normalizedFlowId === DEFAULT_ACTIVE_FLOW_ID && normalizedAdapterId === 'openai-oauth');
+  if (!normalizedAdapterId || !hasAdapter) {
+    throw new Error('当前 flow 尚未接入账号贡献适配器。');
+  }
+  return normalizedAdapterId;
+}
+
+function buildFlowContributionRuntimePatch(currentRuntime = {}, flowId = DEFAULT_ACTIVE_FLOW_ID, adapterId = '', enabled = false) {
+  const normalizedFlowId = normalizeAccountContributionFlowId(flowId);
+  const normalizedAdapterId = normalizeAccountContributionAdapterId(normalizedFlowId, adapterId);
+  const current = currentRuntime && typeof currentRuntime === 'object' && !Array.isArray(currentRuntime)
+    ? currentRuntime
+    : {};
+  if (!enabled) {
+    return {};
+  }
+  return {
+    ...current,
+    [normalizedFlowId]: {
+      ...(current[normalizedFlowId] && typeof current[normalizedFlowId] === 'object' && !Array.isArray(current[normalizedFlowId])
+        ? current[normalizedFlowId]
+        : {}),
+      enabled: true,
+      adapterId: normalizedAdapterId,
+    },
+  };
+}
+
 function isPlusModeState(state = {}) {
   return Boolean(state?.plusModeEnabled);
 }
@@ -732,16 +792,16 @@ function normalizeGpcHelperPhoneMode(value = '') {
   return normalized === 'auto' || normalized === 'builtin' ? 'auto' : 'manual';
 }
 
-function normalizeContributionModeSource(value = '') {
+function normalizeOpenAiContributionSource(value = '') {
   const normalized = String(value || '').trim().toLowerCase();
   return normalized === CONTRIBUTION_SOURCE_SUB2API
     ? CONTRIBUTION_SOURCE_SUB2API
     : CONTRIBUTION_SOURCE_CPA;
 }
 
-function resolveContributionModeRoutingState(state = {}) {
+function resolveOpenAiContributionRoutingState(state = {}) {
   const currentStatus = String(state?.contributionStatus || '').trim().toLowerCase();
-  const currentSource = normalizeContributionModeSource(state?.contributionSource);
+  const currentSource = normalizeOpenAiContributionSource(state?.contributionSource);
   const hasActiveSession = Boolean(
     String(state?.contributionSessionId || '').trim()
     && currentStatus
@@ -1748,7 +1808,7 @@ function canUsePhoneSignup(state = {}) {
   }
   return Boolean(state?.phoneVerificationEnabled)
     && !Boolean(state?.plusModeEnabled)
-    && !Boolean(state?.contributionMode);
+    && !Boolean(state?.accountContributionEnabled);
 }
 
 function resolveSignupMethod(state = {}) {
@@ -3753,6 +3813,56 @@ async function initializeSessionStorageAccess() {
   }
 }
 
+async function migrateLegacyAccountContributionState() {
+  const legacyKeys = ['contributionMode', 'contributionModeExpected'];
+  const sessionKeys = [
+    ...legacyKeys,
+    'accountContributionEnabled',
+    'accountContributionExpected',
+    'contributionAdapterId',
+    'flowContributionRuntime',
+    'activeFlowId',
+    'flowId',
+  ];
+  const legacySessionState = await chrome.storage.session.get(sessionKeys).catch(() => ({}));
+  const updates = {};
+  const shouldEnable = legacySessionState.accountContributionEnabled === undefined
+    && legacySessionState.contributionMode === true;
+  if (shouldEnable) {
+    const flowId = normalizeAccountContributionFlowId(legacySessionState.activeFlowId || legacySessionState.flowId);
+    const adapterId = normalizeAccountContributionAdapterId(flowId, legacySessionState.contributionAdapterId);
+    updates.accountContributionEnabled = true;
+    updates.accountContributionExpected = legacySessionState.accountContributionExpected !== undefined
+      ? Boolean(legacySessionState.accountContributionExpected)
+      : Boolean(legacySessionState.contributionModeExpected);
+    updates.contributionAdapterId = adapterId;
+    updates.flowContributionRuntime = buildFlowContributionRuntimePatch(
+      legacySessionState.flowContributionRuntime,
+      flowId,
+      adapterId,
+      true
+    );
+  } else if (
+    legacySessionState.contributionMode !== undefined
+    && legacySessionState.accountContributionEnabled === undefined
+  ) {
+    updates.accountContributionEnabled = false;
+    updates.accountContributionExpected = false;
+  } else if (
+    legacySessionState.contributionModeExpected !== undefined
+    && legacySessionState.accountContributionExpected === undefined
+  ) {
+    updates.accountContributionExpected = Boolean(legacySessionState.contributionModeExpected);
+  }
+  if (Object.keys(updates).length > 0) {
+    await chrome.storage.session.set(updates);
+  }
+  await Promise.all([
+    chrome.storage.session.remove?.(legacyKeys),
+    chrome.storage.local.remove?.(legacyKeys),
+  ].filter(Boolean)).catch(() => {});
+}
+
 async function setState(updates) {
   console.log(LOG_PREFIX, 'storage.set:', JSON.stringify(updates).slice(0, 200));
   if (Object.keys(updates || {}).length > 0) {
@@ -3902,7 +4012,7 @@ async function importSettingsBundle(configBundle) {
     || Object.prototype.hasOwnProperty.call(importedSettings, 'signupMethod')
     || Object.prototype.hasOwnProperty.call(importedSettings, 'panelMode')
     || Object.prototype.hasOwnProperty.call(importedSettings, 'activeFlowId')
-    || Object.prototype.hasOwnProperty.call(importedSettings, 'contributionMode')
+    || Object.prototype.hasOwnProperty.call(importedSettings, 'accountContributionEnabled')
   ) {
     importedSettings.signupMethod = resolveSignupMethod({
       ...state,
@@ -4112,27 +4222,42 @@ async function setPasswordState(password) {
   broadcastDataUpdate({ password });
 }
 
-function buildContributionModeState(enabled, persistedSettings = {}, currentState = {}) {
+function buildAccountContributionState(enabled, persistedSettings = {}, currentState = {}, options = {}) {
   const currentContributionState = {};
   for (const key of CONTRIBUTION_RUNTIME_KEYS) {
     currentContributionState[key] = currentState[key] !== undefined
       ? currentState[key]
       : CONTRIBUTION_RUNTIME_DEFAULTS[key];
   }
-
   if (enabled) {
-    const routing = resolveContributionModeRoutingState({
+    const activeFlowId = normalizeAccountContributionFlowId(
+      options.flowId
+      || currentState.activeFlowId
+      || currentState.flowId
+      || persistedSettings.activeFlowId
+      || persistedSettings.flowId
+      || DEFAULT_ACTIVE_FLOW_ID
+    );
+    const adapterId = assertAccountContributionAdapterAvailable(
+      activeFlowId,
+      options.adapterId || currentState.contributionAdapterId
+    );
+    const routing = activeFlowId === DEFAULT_ACTIVE_FLOW_ID ? resolveOpenAiContributionRoutingState({
       ...persistedSettings,
       ...currentState,
       ...currentContributionState,
-    });
+    }) : null;
     return {
       ...currentContributionState,
-      contributionMode: true,
-      contributionModeExpected: true,
-      contributionSource: routing.source,
-      contributionTargetGroupName: routing.targetGroupName,
-      panelMode: routing.source,
+      accountContributionEnabled: true,
+      accountContributionExpected: true,
+      contributionAdapterId: adapterId,
+      flowContributionRuntime: buildFlowContributionRuntimePatch(currentContributionState.flowContributionRuntime, activeFlowId, adapterId, true),
+      ...(routing ? {
+        contributionSource: routing.source,
+        contributionTargetGroupName: routing.targetGroupName,
+        panelMode: routing.source,
+      } : {}),
       customPassword: '',
       accountRunHistoryTextEnabled: false,
     };
@@ -4140,22 +4265,24 @@ function buildContributionModeState(enabled, persistedSettings = {}, currentStat
 
   return {
     ...CONTRIBUTION_RUNTIME_DEFAULTS,
-    contributionMode: false,
-    contributionModeExpected: false,
+    accountContributionEnabled: false,
+    accountContributionExpected: false,
+    contributionAdapterId: '',
+    flowContributionRuntime: {},
     panelMode: persistedSettings.panelMode || DEFAULT_STATE.panelMode,
     customPassword: persistedSettings.customPassword || '',
     accountRunHistoryTextEnabled: Boolean(persistedSettings.accountRunHistoryTextEnabled),
   };
 }
 
-async function setContributionMode(enabled) {
+async function setAccountContributionMode(enabled, options = {}) {
   const normalizedEnabled = Boolean(enabled);
   const [persistedSettings, currentState] = await Promise.all([
     getPersistedSettings(),
     getState(),
   ]);
 
-  const updates = buildContributionModeState(normalizedEnabled, persistedSettings, currentState);
+  const updates = buildAccountContributionState(normalizedEnabled, persistedSettings, currentState, options);
 
   await setState(updates);
   const nextState = await getState();
@@ -4410,7 +4537,10 @@ async function resetState() {
     getPersistedSettings(),
     getPersistedAliasState(),
   ]);
-  const contributionModeState = buildContributionModeState(Boolean(prev.contributionMode), persistedSettings, prev);
+  const accountContributionState = buildAccountContributionState(Boolean(prev.accountContributionEnabled), persistedSettings, prev, {
+    adapterId: prev.contributionAdapterId,
+    flowId: prev.activeFlowId || prev.flowId,
+  });
   const reusablePhoneActivation = (
     prev.reusablePhoneActivation
     && typeof prev.reusablePhoneActivation === 'object'
@@ -4453,7 +4583,7 @@ async function resetState() {
     ...DEFAULT_STATE,
     ...persistedSettings,
     ...persistedAliasState,
-    ...contributionModeState,
+    ...accountContributionState,
     seenCodes: prev.seenCodes || [],
     seenInbucketMailIds: prev.seenInbucketMailIds || [],
     accounts: prev.accounts || [],
@@ -13378,6 +13508,32 @@ const kiroRegisterRunner = self.MultiPageBackgroundKiroRegisterRunner?.createKir
   waitForTabStableComplete,
   KIRO_REGISTER_INJECT_FILES,
 });
+const kiroBuilderIdContributionAdapter = self.MultiPageBackgroundKiroBuilderIdContributionAdapter?.createKiroBuilderIdContributionAdapter?.({
+  addLog,
+  fetchImpl: typeof fetch === 'function' ? fetch.bind(globalThis) : null,
+  getState,
+  setState,
+});
+async function maybeSubmitFlowContribution(state = {}, options = {}) {
+  const currentState = state && typeof state === 'object' && !Array.isArray(state) && Object.keys(state).length
+    ? state
+    : await getState();
+  const activeFlowId = normalizeAccountContributionFlowId(currentState.activeFlowId || currentState.flowId);
+  const adapterId = normalizeAccountContributionAdapterId(activeFlowId, currentState.contributionAdapterId);
+  if (!currentState.accountContributionEnabled) {
+    return { ok: true, skipped: true, reason: 'account_contribution_disabled' };
+  }
+  if (activeFlowId === 'kiro' && adapterId === 'kiro-builder-id') {
+    if (!kiroBuilderIdContributionAdapter?.maybeSubmitFlowContribution) {
+      return { ok: false, skipped: true, reason: 'kiro_builder_id_adapter_missing' };
+    }
+    return kiroBuilderIdContributionAdapter.maybeSubmitFlowContribution({
+      ...currentState,
+      contributionAdapterId: adapterId,
+    }, options);
+  }
+  return { ok: true, skipped: true, reason: 'adapter_not_handled_by_flow_submission' };
+}
 const kiroDesktopAuthorizeRunner = self.MultiPageBackgroundKiroDesktopAuthorizeRunner?.createKiroDesktopAuthorizeRunner({
   addLog,
   chrome,
@@ -13398,6 +13554,7 @@ const kiroDesktopAuthorizeRunner = self.MultiPageBackgroundKiroDesktopAuthorizeR
   YYDS_MAIL_PROVIDER,
   MAIL_2925_VERIFICATION_INTERVAL_MS,
   MAIL_2925_VERIFICATION_MAX_ATTEMPTS,
+  maybeSubmitFlowContribution,
   pollCloudflareTempEmailVerificationCode,
   pollCloudMailVerificationCode,
   pollHotmailVerificationCode,
@@ -13626,7 +13783,7 @@ const messageRouter = self.MultiPageBackgroundMessageRouter?.createMessageRouter
   setCurrentPayPalAccount,
   setCurrentHotmailAccount,
   setCurrentMail2925Account,
-  setContributionMode,
+  setAccountContributionMode,
   setEmailState,
   setEmailStateSilently,
   persistRegistrationEmailState,
@@ -13643,9 +13800,10 @@ const messageRouter = self.MultiPageBackgroundMessageRouter?.createMessageRouter
   setNodeStatus,
   skipAutoRunCountdown,
   skipNode,
-  startContributionFlow: (...args) => contributionOAuthManager?.startContributionFlow?.(...args),
+  startFlowContribution: (...args) => contributionOAuthManager?.startFlowContribution?.(...args),
   startAutoRunLoop,
   pollContributionStatus: (...args) => contributionOAuthManager?.pollContributionStatus?.(...args),
+  submitFlowContribution: (...args) => contributionOAuthManager?.submitContributionCallback?.(...args),
   syncHotmailAccounts,
   syncPayPalAccounts,
   deleteMail2925Account,
@@ -13958,15 +14116,15 @@ async function executeStep5(state) {
 
 async function refreshOAuthUrlBeforeStep6(state, options = {}) {
   const visibleStep = Number(options.visibleStep) || Number(state?.visibleStep) || 7;
-  if (state?.contributionModeExpected && !state?.contributionMode) {
-    throw new Error(`步骤 ${visibleStep}：当前自动流程预期使用贡献模式，但运行态 contributionMode 已丢失，已阻止回退到普通 CPA / SUB2API / Codex2API 链路。请重新进入贡献模式后再点击自动。`);
+  if (state?.accountContributionExpected && !state?.accountContributionEnabled) {
+    throw new Error(`步骤 ${visibleStep}：当前自动流程预期使用账号贡献，但运行态 accountContributionEnabled 已丢失，已阻止回退到普通 CPA / SUB2API / Codex2API 链路。请重新进入账号贡献后再点击自动。`);
   }
-  if (state?.contributionMode && contributionOAuthManager?.startContributionFlow) {
-    await addLog('contributionMode=true，走公开贡献接口，正在申请 OAuth 登录地址...', 'info', {
+  if (state?.accountContributionEnabled && contributionOAuthManager?.startFlowContribution) {
+    await addLog('账号贡献已开启，走公开贡献接口，正在申请 OAuth 登录地址...', 'info', {
       step: visibleStep,
       stepKey: 'oauth-login',
     });
-    const contributionState = await contributionOAuthManager.startContributionFlow({
+    const contributionState = await contributionOAuthManager.startFlowContribution({
       nickname: state.contributionNickname || '',
       openAuthTab: false,
       stateOverride: state,
@@ -13978,7 +14136,7 @@ async function refreshOAuthUrlBeforeStep6(state, options = {}) {
     await handleStepData(1, { oauthUrl });
     return oauthUrl;
   }
-  await addLog(`contributionMode=false，走普通 CPA / SUB2API / Codex2API 链路（当前面板：${getPanelModeLabel(state)}），正在刷新 OAuth 登录地址...`, 'info', {
+  await addLog(`账号贡献未开启，走普通 CPA / SUB2API / Codex2API 链路（当前面板：${getPanelModeLabel(state)}），正在刷新 OAuth 登录地址...`, 'info', {
     step: visibleStep,
     stepKey: 'oauth-login',
   });
@@ -15337,10 +15495,10 @@ async function executeStep10(state) {
   const platformVerifyStep = typeof getStepIdByKeyForState === 'function'
     ? (getStepIdByKeyForState('platform-verify', state || {}) || 10)
     : 10;
-  if (state?.contributionModeExpected && !state?.contributionMode) {
-    throw new Error(`步骤 ${platformVerifyStep}：当前自动流程预期使用贡献模式，但运行态 contributionMode 已丢失，已阻止回退到普通 CPA / SUB2API / Codex2API 提交。请重新进入贡献模式后再点击自动。`);
+  if (state?.accountContributionExpected && !state?.accountContributionEnabled) {
+    throw new Error(`步骤 ${platformVerifyStep}：当前自动流程预期使用账号贡献，但运行态 accountContributionEnabled 已丢失，已阻止回退到普通 CPA / SUB2API / Codex2API 提交。请重新进入账号贡献后再点击自动。`);
   }
-  if (state?.contributionMode) {
+  if (state?.accountContributionEnabled) {
     return executeContributionStep10(state);
   }
   return step10Executor.executeStep10(state);
@@ -15367,6 +15525,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  migrateLegacyAccountContributionState().catch((err) => {
+    console.error(LOG_PREFIX, 'Failed to migrate legacy account contribution state on startup:', err);
+  });
   restoreAutoRunTimerIfNeeded().catch((err) => {
     console.error(LOG_PREFIX, 'Failed to restore auto run timer on startup:', err);
   });
@@ -15384,6 +15545,9 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
+  migrateLegacyAccountContributionState().catch((err) => {
+    console.error(LOG_PREFIX, 'Failed to migrate legacy account contribution state on install/update:', err);
+  });
   restoreAutoRunTimerIfNeeded().catch((err) => {
     console.error(LOG_PREFIX, 'Failed to restore auto run timer on install/update:', err);
   });
@@ -15400,6 +15564,9 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+migrateLegacyAccountContributionState().catch((err) => {
+  console.error(LOG_PREFIX, 'Failed to migrate legacy account contribution state:', err);
+});
 restoreAutoRunTimerIfNeeded().catch((err) => {
   console.error(LOG_PREFIX, 'Failed to restore auto run timer:', err);
 });

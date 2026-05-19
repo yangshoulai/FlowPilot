@@ -152,11 +152,11 @@
         </div>
         <div class="contribution-mode-status-grid">
           <div class="contribution-mode-status-card">
-            <span class="contribution-mode-status-label">OAUTH</span>
+            <span id="contribution-primary-status-label" class="contribution-mode-status-label">OAUTH</span>
             <span id="contribution-oauth-status" class="contribution-mode-status-value">未生成登录地址</span>
           </div>
           <div class="contribution-mode-status-card">
-            <span class="contribution-mode-status-label">回调</span>
+            <span id="contribution-secondary-status-label" class="contribution-mode-status-label">回调</span>
             <span id="contribution-callback-status" class="contribution-mode-status-value">等待回调</span>
           </div>
         </div>
@@ -1857,6 +1857,7 @@
   <script src="../luckmail-utils.js"></script>
   <script src="../yyds-mail-utils.js"></script>
   <script src="../shared/flow-registry.js"></script>
+  <script src="../shared/contribution-registry.js"></script>
   <script src="../shared/settings-schema.js"></script>
   <script src="../shared/flow-capabilities.js"></script>
   <script src="../data/step-definitions.js"></script>

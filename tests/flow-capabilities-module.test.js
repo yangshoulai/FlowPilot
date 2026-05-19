@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const flowRegistrySource = fs.readFileSync('shared/flow-registry.js', 'utf8');
+const contributionRegistrySource = fs.readFileSync('shared/contribution-registry.js', 'utf8');
 const settingsSchemaSource = fs.readFileSync('shared/settings-schema.js', 'utf8');
 const source = fs.readFileSync('shared/flow-capabilities.js', 'utf8');
 
@@ -10,7 +11,7 @@ function loadApi() {
   const scope = {};
   return new Function(
     'self',
-    `${flowRegistrySource}; ${settingsSchemaSource}; ${source}; return self.MultiPageFlowCapabilities;`
+    `${flowRegistrySource}; ${contributionRegistrySource}; ${settingsSchemaSource}; ${source}; return self.MultiPageFlowCapabilities;`
   )(scope);
 }
 
@@ -24,7 +25,7 @@ test('flow capability registry keeps OpenAI phone signup available only when run
       openaiIntegrationTargetId: 'cpa',
       phoneVerificationEnabled: true,
       plusModeEnabled: false,
-      contributionMode: false,
+      accountContributionEnabled: false,
       signupMethod: 'phone',
     },
   });
@@ -40,7 +41,7 @@ test('flow capability registry keeps OpenAI phone signup available only when run
       openaiIntegrationTargetId: 'sub2api',
       phoneVerificationEnabled: true,
       plusModeEnabled: true,
-      contributionMode: false,
+      accountContributionEnabled: false,
       signupMethod: 'phone',
     },
   });
@@ -61,7 +62,7 @@ test('flow capability registry defaults unknown flows to minimal non-phone capab
       openaiIntegrationTargetId: 'codex2api',
       phoneVerificationEnabled: true,
       plusModeEnabled: true,
-      contributionMode: true,
+      accountContributionEnabled: true,
       signupMethod: 'phone',
     },
   });
@@ -94,8 +95,10 @@ test('flow capability registry exposes Kiro as an independent flow with its own 
   assert.equal(capabilityState.activeFlowId, 'kiro');
   assert.equal(capabilityState.canShowPhoneSettings, false);
   assert.equal(capabilityState.canShowPlusSettings, false);
+  assert.equal(capabilityState.canShowContributionMode, true);
   assert.equal(capabilityState.effectiveSignupMethod, 'email');
   assert.equal(capabilityState.effectiveTargetId, 'kiro-rs');
+  assert.deepEqual(capabilityState.flowCapabilities.contributionAdapterIds, ['kiro-builder-id']);
   assert.deepEqual(
     capabilityState.visibleGroupIds,
     ['kiro-runtime-status', 'kiro-target-kiro-rs', 'service-account', 'service-email', 'service-proxy']
@@ -121,7 +124,7 @@ test('flow capability registry exposes shared auto-run validation for phone lock
       signupMethod: 'phone',
       phoneVerificationEnabled: true,
       plusModeEnabled: true,
-      contributionMode: false,
+      accountContributionEnabled: false,
     },
   });
 
@@ -159,14 +162,14 @@ test('flow capability registry normalizes unsupported mode switches back to the 
       signupMethod: 'phone',
       phoneVerificationEnabled: true,
       plusModeEnabled: true,
-      contributionMode: true,
+      accountContributionEnabled: true,
     },
     changedKeys: [
       'openaiIntegrationTargetId',
       'signupMethod',
       'phoneVerificationEnabled',
       'plusModeEnabled',
-      'contributionMode',
+      'accountContributionEnabled',
     ],
   });
 
@@ -178,7 +181,8 @@ test('flow capability registry normalizes unsupported mode switches back to the 
     signupMethod: 'email',
     phoneVerificationEnabled: false,
     plusModeEnabled: false,
-    contributionMode: false,
+    accountContributionEnabled: false,
+    accountContributionEnabled: false,
   });
   assert.deepEqual(
     validation.errors.map((entry) => entry.code),

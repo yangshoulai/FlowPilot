@@ -365,6 +365,7 @@
       MAIL_2925_VERIFICATION_INTERVAL_MS = 15000,
       MAIL_2925_VERIFICATION_MAX_ATTEMPTS = 15,
       isTabAlive = async () => false,
+      maybeSubmitFlowContribution = async () => null,
       KIRO_REGISTER_INJECT_FILES = null,
       KIRO_DESKTOP_AUTHORIZE_INJECT_FILES = null,
       pollCloudflareTempEmailVerificationCode = null,
@@ -477,6 +478,15 @@
         },
       });
       await log('步骤 8：桌面授权回调已捕获，Token 换取成功。', 'ok', nodeId);
+      await maybeSubmitFlowContribution({
+        ...currentState,
+        ...payload,
+      }, {
+        nodeId,
+        trigger: 'kiro-step-8',
+      }).catch(async (error) => {
+        await log(`步骤 8：Kiro 公共贡献提交异常，已保留桌面授权结果：${getErrorMessage(error)}`, 'warn', nodeId);
+      });
       await completeNodeFromBackground(nodeId, payload);
       return payload;
     }

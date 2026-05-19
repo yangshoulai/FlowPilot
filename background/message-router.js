@@ -67,7 +67,7 @@
         }
         return Boolean(state?.phoneVerificationEnabled)
           && !Boolean(state?.plusModeEnabled)
-          && !Boolean(state?.contributionMode);
+          && !Boolean(state?.accountContributionEnabled);
       },
       resolveSignupMethod = (state = {}) => {
         const method = normalizeSignupMethod(state?.signupMethod);
@@ -149,6 +149,7 @@
       patchMail2925Account,
       patchHotmailAccount,
       pollContributionStatus,
+      submitFlowContribution,
       registerTab,
       requestStop,
       probeIpProxyExit,
@@ -162,7 +163,7 @@
       setCurrentPayPalAccount,
       setCurrentMail2925Account,
       setCurrentHotmailAccount,
-      setContributionMode,
+      setAccountContributionMode,
       setEmailState,
       setEmailStateSilently,
       persistRegistrationEmailState,
@@ -179,7 +180,7 @@
       setNodeStatus,
       skipAutoRunCountdown,
       skipNode,
-      startContributionFlow,
+      startFlowContribution,
       startAutoRunLoop,
       deleteMail2925Account,
       deleteMail2925Accounts,
@@ -1154,59 +1155,61 @@
           return await setFreeReusablePhoneActivation(message.payload || {});
         }
 
-        case 'SET_CONTRIBUTION_MODE': {
+        case 'SET_ACCOUNT_CONTRIBUTION_MODE': {
           const enabled = Boolean(message.payload?.enabled);
-          const state = await ensureManualInteractionAllowed(enabled ? '进入贡献模式' : '退出贡献模式');
+          const state = await ensureManualInteractionAllowed(enabled ? '进入账号贡献' : '退出账号贡献');
           if (Object.values(state.nodeStatuses || {}).some((status) => status === 'running')) {
-            throw new Error(enabled ? '当前有步骤正在执行，无法进入贡献模式。' : '当前有步骤正在执行，无法退出贡献模式。');
+            throw new Error(enabled ? '当前有步骤正在执行，无法进入账号贡献。' : '当前有步骤正在执行，无法退出账号贡献。');
           }
-          if (typeof setContributionMode !== 'function') {
-            throw new Error('贡献模式切换能力未接入。');
+          if (typeof setAccountContributionMode !== 'function') {
+            throw new Error('账号贡献切换能力未接入。');
           }
           return {
             ok: true,
-            state: await setContributionMode(enabled),
+            state: await setAccountContributionMode(enabled, {
+              adapterId: message.payload?.adapterId,
+              flowId: message.payload?.flowId || state?.activeFlowId || state?.flowId,
+            }),
           };
         }
 
-        case 'START_CONTRIBUTION_FLOW': {
+        case 'START_FLOW_CONTRIBUTION': {
           const state = await ensureManualInteractionAllowed('开始贡献');
           if (Object.values(state.nodeStatuses || {}).some((status) => status === 'running')) {
             throw new Error('当前有步骤正在执行，无法开始贡献流程。');
           }
-          if (typeof startContributionFlow !== 'function') {
+          if (!state?.accountContributionEnabled) {
+            throw new Error('请先进入账号贡献。');
+          }
+          if (typeof startFlowContribution !== 'function') {
             throw new Error('贡献 OAuth 流程尚未接入。');
           }
           return {
             ok: true,
-            state: await startContributionFlow({
+            state: await startFlowContribution({
               nickname: message.payload?.nickname,
               qq: message.payload?.qq,
             }),
           };
         }
 
-        case 'SET_CONTRIBUTION_PROFILE': {
+        case 'SUBMIT_FLOW_CONTRIBUTION': {
           const state = await getState();
-          if (!state?.contributionMode) {
-            throw new Error('请先进入贡献模式。');
+          if (!state?.accountContributionEnabled) {
+            throw new Error('请先进入账号贡献。');
           }
-          const nickname = String(message.payload?.nickname || '').trim();
-          const qq = String(message.payload?.qq || '').trim();
-          if (qq && !/^\d{1,20}$/.test(qq)) {
-            throw new Error('QQ 只能填写数字，且长度不能超过 20 位。');
+          if (typeof submitFlowContribution !== 'function') {
+            throw new Error('贡献提交能力尚未接入。');
           }
-          await setState({
-            contributionNickname: nickname,
-            contributionQq: qq,
-          });
           return {
             ok: true,
-            state: await getState(),
+            state: await submitFlowContribution(message.payload?.callbackUrl, {
+              reason: message.payload?.reason || 'sidepanel_submit',
+            }),
           };
         }
 
-        case 'POLL_CONTRIBUTION_STATUS': {
+        case 'POLL_FLOW_CONTRIBUTION_STATUS': {
           if (typeof pollContributionStatus !== 'function') {
             throw new Error('贡献状态轮询能力尚未接入。');
           }
@@ -1285,8 +1288,11 @@
           if (message.source === 'sidepanel') {
             await lockAutomationWindowFromMessage(message, sender);
           }
-          if (Boolean(message.payload?.contributionMode) && typeof setContributionMode === 'function') {
-            await setContributionMode(true);
+          if (Boolean(message.payload?.accountContributionEnabled) && typeof setAccountContributionMode === 'function') {
+            await setAccountContributionMode(true, {
+              adapterId: message.payload?.contributionAdapterId,
+              flowId: message.payload?.activeFlowId || message.payload?.flowId,
+            });
             if (typeof setState === 'function') {
               const contributionNickname = String(message.payload?.contributionNickname || '').trim();
               const contributionQq = String(message.payload?.contributionQq || '').trim();
@@ -1325,8 +1331,11 @@
           if (message.source === 'sidepanel') {
             await lockAutomationWindowFromMessage(message, sender);
           }
-          if (Boolean(message.payload?.contributionMode) && typeof setContributionMode === 'function') {
-            await setContributionMode(true);
+          if (Boolean(message.payload?.accountContributionEnabled) && typeof setAccountContributionMode === 'function') {
+            await setAccountContributionMode(true, {
+              adapterId: message.payload?.contributionAdapterId,
+              flowId: message.payload?.activeFlowId || message.payload?.flowId,
+            });
             if (typeof setState === 'function') {
               const contributionNickname = String(message.payload?.contributionNickname || '').trim();
               const contributionQq = String(message.payload?.contributionQq || '').trim();
@@ -1444,7 +1453,7 @@
             || Object.prototype.hasOwnProperty.call(updates, 'signupMethod')
             || Object.prototype.hasOwnProperty.call(updates, 'panelMode')
             || Object.prototype.hasOwnProperty.call(updates, 'activeFlowId')
-            || Object.prototype.hasOwnProperty.call(updates, 'contributionMode')
+            || Object.prototype.hasOwnProperty.call(updates, 'accountContributionEnabled')
           ) {
             updates.signupMethod = resolveSignupMethod(nextSignupState);
           }
@@ -1576,8 +1585,11 @@
               error: error?.message || String(error || '代理应用失败'),
             }));
           }
-          if (Boolean(currentState?.contributionMode) && typeof setContributionMode === 'function') {
-            await setContributionMode(true);
+          if (Boolean(currentState?.accountContributionEnabled) && typeof setAccountContributionMode === 'function') {
+            await setAccountContributionMode(true, {
+              adapterId: currentState?.contributionAdapterId,
+              flowId: currentState?.activeFlowId || currentState?.flowId,
+            });
           }
           if (Object.keys(stateUpdates).length > 0 && typeof broadcastDataUpdate === 'function') {
             broadcastDataUpdate(stateUpdates);
