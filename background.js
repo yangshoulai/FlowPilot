@@ -693,6 +693,7 @@ const HERO_SMS_SERVICE_CODE = 'dr';
 const HERO_SMS_SERVICE_LABEL = 'OpenAI';
 const HERO_SMS_COUNTRY_ID = 52;
 const HERO_SMS_COUNTRY_LABEL = 'Thailand';
+const DEFAULT_HERO_SMS_OPERATOR = 'any';
 const PHONE_SMS_PROVIDER_HERO = 'hero-sms';
 const PHONE_SMS_PROVIDER_5SIM = '5sim';
 const PHONE_SMS_PROVIDER_HERO_SMS = PHONE_SMS_PROVIDER_HERO;
@@ -1457,6 +1458,7 @@ const PERSISTED_SETTING_DEFAULTS = {
   heroSmsApiKey: '',
   heroSmsReuseEnabled: DEFAULT_HERO_SMS_REUSE_ENABLED,
   heroSmsAcquirePriority: DEFAULT_HERO_SMS_ACQUIRE_PRIORITY,
+  heroSmsOperator: DEFAULT_HERO_SMS_OPERATOR,
   heroSmsMinPrice: '',
   heroSmsMaxPrice: '',
   heroSmsPreferredPrice: '',
@@ -1788,6 +1790,21 @@ function normalizeHeroSmsAcquirePriority(value = '') {
     return HERO_SMS_ACQUIRE_PRIORITY_PRICE_HIGH;
   }
   return HERO_SMS_ACQUIRE_PRIORITY_COUNTRY;
+}
+
+function normalizeHeroSmsOperator(value = '', fallback = DEFAULT_HERO_SMS_OPERATOR) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '');
+  if (normalized) {
+    return normalized;
+  }
+  const fallbackNormalized = String(fallback || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '');
+  return fallbackNormalized || DEFAULT_HERO_SMS_OPERATOR;
 }
 
 function normalizeHeroSmsCountryFallback(value = []) {
@@ -3548,6 +3565,8 @@ function normalizePersistentSettingValue(key, value) {
       return Boolean(value);
     case 'heroSmsAcquirePriority':
       return normalizeHeroSmsAcquirePriority(value);
+    case 'heroSmsOperator':
+      return normalizeHeroSmsOperator(value);
     case 'heroSmsMinPrice':
     case 'heroSmsMaxPrice':
       return normalizeHeroSmsMaxPrice(value);
@@ -13690,6 +13709,7 @@ const phoneVerificationHelpers = self.MultiPageBackgroundPhoneVerification?.crea
   DEFAULT_NEX_SMS_COUNTRY_ORDER,
   DEFAULT_NEX_SMS_SERVICE_CODE,
   DEFAULT_HERO_SMS_BASE_URL,
+  DEFAULT_HERO_SMS_OPERATOR,
   DEFAULT_HERO_SMS_REUSE_ENABLED,
   DEFAULT_PHONE_CODE_WAIT_SECONDS,
   DEFAULT_PHONE_CODE_TIMEOUT_WINDOWS,

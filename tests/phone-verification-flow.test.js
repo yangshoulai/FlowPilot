@@ -83,6 +83,78 @@ test('phone verification helper requests HeroSMS numbers with fixed OpenAI and T
   assert.equal(requests[1].searchParams.get('api_key'), 'demo-key');
 });
 
+test('phone verification helper appends HeroSMS operator when configured', async () => {
+  const requests = [];
+  const helpers = api.createPhoneVerificationHelpers({
+    addLog: async () => {},
+    ensureStep8SignupPageReady: async () => {},
+    fetchImpl: async (url) => {
+      const parsedUrl = new URL(url);
+      requests.push(parsedUrl);
+      const action = parsedUrl.searchParams.get('action');
+      if (action === 'getPrices') {
+        return {
+          ok: true,
+          text: async () => buildHeroSmsPricesPayload(),
+        };
+      }
+      if (action === 'getNumber') {
+        return {
+          ok: true,
+          text: async () => 'ACCESS_NUMBER:123456:66959916439',
+        };
+      }
+      throw new Error(`Unexpected HeroSMS action: ${action}`);
+    },
+    getState: async () => ({ heroSmsApiKey: 'demo-key', heroSmsOperator: 'ais' }),
+    sendToContentScriptResilient: async () => ({}),
+    setState: async () => {},
+    sleepWithStop: async () => {},
+    throwIfStopped: () => {},
+  });
+
+  await helpers.requestPhoneActivation({ heroSmsApiKey: 'demo-key', heroSmsOperator: ' AIS!! ' });
+
+  const getNumberRequest = requests.find((requestUrl) => requestUrl.searchParams.get('action') === 'getNumber');
+  assert.equal(getNumberRequest.searchParams.get('operator'), 'ais');
+});
+
+test('phone verification helper reads latest HeroSMS operator from persistent state', async () => {
+  const requests = [];
+  const helpers = api.createPhoneVerificationHelpers({
+    addLog: async () => {},
+    ensureStep8SignupPageReady: async () => {},
+    fetchImpl: async (url) => {
+      const parsedUrl = new URL(url);
+      requests.push(parsedUrl);
+      const action = parsedUrl.searchParams.get('action');
+      if (action === 'getPrices') {
+        return {
+          ok: true,
+          text: async () => buildHeroSmsPricesPayload(),
+        };
+      }
+      if (action === 'getNumber') {
+        return {
+          ok: true,
+          text: async () => 'ACCESS_NUMBER:123456:66959916439',
+        };
+      }
+      throw new Error(`Unexpected HeroSMS action: ${action}`);
+    },
+    getState: async () => ({ heroSmsApiKey: 'demo-key', heroSmsOperator: 'dtac' }),
+    sendToContentScriptResilient: async () => ({}),
+    setState: async () => {},
+    sleepWithStop: async () => {},
+    throwIfStopped: () => {},
+  });
+
+  await helpers.requestPhoneActivation({ heroSmsApiKey: 'demo-key' });
+
+  const getNumberRequest = requests.find((requestUrl) => requestUrl.searchParams.get('action') === 'getNumber');
+  assert.equal(getNumberRequest.searchParams.get('operator'), 'dtac');
+});
+
 test('signup phone helper persists signup runtime state without touching add-phone activation', async () => {
   const setStateCalls = [];
   let currentState = {
@@ -2206,6 +2278,152 @@ test('phone verification helper acquires a number from 5sim with fallback countr
   assert.equal(requests[2].search.get('country'), 'england');
   assert.equal(requests[2].search.get('product'), 'openai');
   assert.equal(requests[3].pathname, '/v1/user/buy/activation/england/any/openai');
+});
+
+test('phone verification helper preserves fallback provider while refreshing latest settings', async () => {
+  const heroRequests = [];
+  const fiveSimRequests = [];
+  const submittedNumbers = [];
+  let currentState = {
+    heroSmsApiKey: 'hero-key',
+    phoneSmsProvider: 'hero-sms',
+    phoneSmsProviderOrder: ['hero-sms', '5sim'],
+    heroSmsCountryId: 52,
+    heroSmsCountryLabel: 'Thailand',
+    fiveSimApiKey: 'five-token',
+    fiveSimCountryOrder: ['vietnam'],
+    fiveSimOperator: 'any',
+    fiveSimProduct: 'openai',
+    phoneSmsReuseEnabled: true,
+    verificationResendCount: 0,
+    phoneVerificationReplacementLimit: 1,
+    phoneCodeWaitSeconds: 15,
+    phoneCodeTimeoutWindows: 1,
+    phoneCodePollIntervalSeconds: 1,
+    phoneCodePollMaxRounds: 1,
+    currentPhoneActivation: null,
+    reusablePhoneActivation: null,
+  };
+
+  const helpers = api.createPhoneVerificationHelpers({
+    addLog: async () => {},
+    ensureStep8SignupPageReady: async () => {},
+    fetchImpl: async (url, options = {}) => {
+      const parsedUrl = new URL(url);
+      const action = parsedUrl.searchParams.get('action');
+      if (parsedUrl.hostname === 'hero-sms.com') {
+        heroRequests.push(parsedUrl);
+        if (action === 'getPrices') {
+          return {
+            ok: true,
+            text: async () => buildHeroSmsPricesPayload({ country: '52', cost: 0.05, count: 5 }),
+          };
+        }
+        if (action === 'getNumber' || action === 'getNumberV2') {
+          return { ok: true, text: async () => 'NO_NUMBERS' };
+        }
+        throw new Error(`Unexpected HeroSMS action: ${action}`);
+      }
+      fiveSimRequests.push({ url: parsedUrl, options });
+      if (parsedUrl.pathname === '/v1/guest/prices') {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            openai: {
+              vietnam: {
+                any: {
+                  cost: 0.08,
+                  count: 3,
+                },
+              },
+            },
+          }),
+        };
+      }
+      if (parsedUrl.pathname === '/v1/user/buy/activation/vietnam/any/openai') {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            id: 5020,
+            phone: '+84901122334',
+            country: 'vietnam',
+            country_name: 'Vietnam',
+            product: 'openai',
+          }),
+        };
+      }
+      if (parsedUrl.pathname === '/v1/user/check/5020') {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            id: 5020,
+            phone: '+84901122334',
+            status: 'RECEIVED',
+            sms: [{ text: 'OpenAI code 123456' }],
+          }),
+        };
+      }
+      if (parsedUrl.pathname === '/v1/user/finish/5020') {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ status: 'FINISHED' }),
+        };
+      }
+      throw new Error(`Unexpected 5sim request: ${parsedUrl.pathname}`);
+    },
+    getOAuthFlowStepTimeoutMs: async (defaultTimeoutMs) => defaultTimeoutMs,
+    getState: async () => ({ ...currentState }),
+    sendToContentScriptResilient: async (_source, message) => {
+      if (message.type === 'SUBMIT_PHONE_NUMBER') {
+        submittedNumbers.push(message.payload.phoneNumber);
+        return { phoneVerificationPage: true, url: 'https://auth.openai.com/phone-verification' };
+      }
+      if (message.type === 'SUBMIT_PHONE_VERIFICATION_CODE') {
+        return { success: true, consentReady: true, url: 'https://auth.openai.com/authorize' };
+      }
+      throw new Error(`Unexpected content-script message: ${message.type}`);
+    },
+    setState: async (updates) => {
+      currentState = { ...currentState, ...updates };
+    },
+    sleepWithStop: async () => {},
+    throwIfStopped: () => {},
+  });
+
+  const result = await helpers.completePhoneVerificationFlow(1, {
+    addPhonePage: true,
+    phoneVerificationPage: false,
+    url: 'https://auth.openai.com/add-phone',
+  });
+
+  assert.deepStrictEqual(result, {
+    success: true,
+    consentReady: true,
+    url: 'https://auth.openai.com/authorize',
+  });
+  assert.deepStrictEqual(submittedNumbers, ['+84901122334']);
+  assert.equal(currentState.reusablePhoneActivation.provider, '5sim');
+  assert.equal(currentState.reusablePhoneActivation.activationId, '5020');
+  assert.equal(heroRequests.some((requestUrl) => requestUrl.searchParams.get('action') === 'getNumber'), true);
+  assert.equal(heroRequests.some((requestUrl) => requestUrl.searchParams.get('action') === 'getNumberV2'), true);
+  assert.equal(
+    heroRequests.every((requestUrl) => ['getPrices', 'getNumber', 'getNumberV2'].includes(requestUrl.searchParams.get('action'))),
+    true
+  );
+  assert.deepStrictEqual(
+    fiveSimRequests.map((entry) => entry.url.pathname),
+    [
+      '/v1/guest/prices',
+      '/v1/user/buy/activation/vietnam/any/openai',
+      '/v1/user/check/5020',
+      '/v1/user/finish/5020',
+    ]
+  );
+  assert.equal(fiveSimRequests[1].options.headers.Authorization, 'Bearer five-token');
 });
 
 test('phone verification helper prefers phoneSmsReuseEnabled over legacy heroSmsReuseEnabled for 5sim acquisition', async () => {

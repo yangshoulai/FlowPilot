@@ -73,6 +73,7 @@ test('background account history settings are normalized independently from hotm
     extractFunction('normalizePhoneCodePollMaxRounds'),
     extractFunction('normalizeHeroSmsMaxPrice'),
     extractFunction('normalizeHeroSmsCountryFallback'),
+    extractFunction('normalizeHeroSmsOperator'),
     extractFunction('normalizePhoneSmsProvider'),
     extractFunction('normalizeFiveSimCountryId'),
     extractFunction('normalizeFiveSimCountryLabel'),
@@ -114,6 +115,7 @@ const VERIFICATION_RESEND_COUNT_MIN = 0;
 const VERIFICATION_RESEND_COUNT_MAX = 20;
 const HERO_SMS_COUNTRY_ID = 52;
 const HERO_SMS_COUNTRY_LABEL = 'Thailand';
+const DEFAULT_HERO_SMS_OPERATOR = 'any';
 const PHONE_SMS_PROVIDER_HERO_SMS = 'hero-sms';
 const PHONE_SMS_PROVIDER_FIVE_SIM = '5sim';
 const PHONE_SMS_PROVIDER_NEXSMS = 'nexsms';
@@ -280,6 +282,8 @@ return {
   assert.equal(api.normalizePersistentSettingValue('heroSmsMaxPrice', '0.123456'), '0.1235');
   assert.equal(api.normalizePersistentSettingValue('heroSmsMaxPrice', '0'), '');
   assert.equal(api.normalizePersistentSettingValue('heroSmsPreferredPrice', '0.051234'), '0.0512');
+  assert.equal(api.normalizePersistentSettingValue('heroSmsOperator', ' AIS!! '), 'ais');
+  assert.equal(api.normalizePersistentSettingValue('heroSmsOperator', ''), 'any');
   assert.equal(api.normalizePersistentSettingValue('signupMethod', 'phone'), 'phone');
   assert.equal(api.normalizePersistentSettingValue('signupMethod', 'unknown'), 'email');
   assert.equal(api.normalizePersistentSettingValue('activeFlowId', 'codex'), 'openai');

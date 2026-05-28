@@ -23,6 +23,7 @@
       DEFAULT_FIVE_SIM_BASE_URL = 'https://5sim.net/v1',
       DEFAULT_FIVE_SIM_PRODUCT = 'openai',
       DEFAULT_FIVE_SIM_OPERATOR = 'any',
+      DEFAULT_HERO_SMS_OPERATOR = 'any',
       DEFAULT_FIVE_SIM_COUNTRY_ORDER = ['thailand'],
       DEFAULT_NEX_SMS_BASE_URL = 'https://api.nexsms.net',
       DEFAULT_NEX_SMS_COUNTRY_ORDER = [1],
@@ -548,6 +549,21 @@
       return String(value || '').trim() || fallback;
     }
 
+    function normalizeHeroSmsOperator(value = '', fallback = DEFAULT_HERO_SMS_OPERATOR) {
+      const normalized = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '');
+      if (normalized) {
+        return normalized;
+      }
+      const fallbackNormalized = String(fallback || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '');
+      return fallbackNormalized || DEFAULT_HERO_SMS_OPERATOR;
+    }
+
     function inferHeroSmsCountryFromPhoneNumber(phoneNumber = '') {
       const digits = String(phoneNumber || '').replace(/\D+/g, '');
       if (!digits) {
@@ -925,6 +941,17 @@
 
     function getActivationProviderId(activation = {}, state = {}) {
       return normalizePhoneSmsProvider(activation?.provider || state?.phoneSmsProvider);
+    }
+
+    function scopeStateToActivationProvider(state = {}, activation = {}) {
+      const provider = getActivationProviderId(activation, state);
+      if (!provider) {
+        return state || {};
+      }
+      return {
+        ...(state || {}),
+        phoneSmsProvider: provider,
+      };
     }
 
     function getPhoneSmsProviderLabel(providerId) {
@@ -2100,6 +2127,7 @@
         provider,
         apiKey,
         baseUrl: normalizeUrl(state.heroSmsBaseUrl, DEFAULT_HERO_SMS_BASE_URL),
+        operator: normalizeHeroSmsOperator(state.heroSmsOperator, DEFAULT_HERO_SMS_OPERATOR),
         countryCandidates: resolveCountryCandidates(state),
       };
     }
@@ -2113,8 +2141,80 @@
         provider: PHONE_SMS_PROVIDER_HERO,
         apiKey,
         baseUrl: normalizeUrl(state.heroSmsBaseUrl, DEFAULT_HERO_SMS_BASE_URL),
+        operator: normalizeHeroSmsOperator(state.heroSmsOperator, DEFAULT_HERO_SMS_OPERATOR),
         countryCandidates: resolveCountryCandidates(state),
       };
+    }
+
+    const LATEST_PHONE_SETTING_KEYS = Object.freeze([
+      'phoneSmsProvider',
+      'phoneSmsProviderOrder',
+      'phoneSmsReuseEnabled',
+      'heroSmsApiKey',
+      'heroSmsBaseUrl',
+      'heroSmsCountryId',
+      'heroSmsCountryLabel',
+      'heroSmsCountryFallback',
+      'heroSmsAcquirePriority',
+      'heroSmsOperator',
+      'heroSmsMinPrice',
+      'heroSmsMaxPrice',
+      'heroSmsPreferredPrice',
+      'heroSmsActivationRetryRounds',
+      'heroSmsActivationRetryDelayMs',
+      'fiveSimApiKey',
+      'fiveSimBaseUrl',
+      'fiveSimCountryId',
+      'fiveSimCountryLabel',
+      'fiveSimCountryFallback',
+      'fiveSimCountryOrder',
+      'fiveSimOperator',
+      'fiveSimProduct',
+      'fiveSimMinPrice',
+      'fiveSimMaxPrice',
+      'nexSmsApiKey',
+      'nexSmsBaseUrl',
+      'nexSmsCountryOrder',
+      'nexSmsServiceCode',
+      'phoneVerificationReplacementLimit',
+      'phoneCodeWaitSeconds',
+      'phoneCodeTimeoutWindows',
+      'phoneCodePollIntervalSeconds',
+      'phoneCodePollMaxRounds',
+      'freePhoneReuseEnabled',
+      'freePhoneReuseAutoEnabled',
+    ]);
+
+    async function mergeLatestPhoneSettingsState(state = {}, options = {}) {
+      if (typeof getState !== 'function') {
+        return state || {};
+      }
+      try {
+        const latestState = await getState();
+        if (!latestState || typeof latestState !== 'object') {
+          return state || {};
+        }
+        const mergedState = {
+          ...latestState,
+          ...(state || {}),
+        };
+        const preservePhoneSmsProvider = Boolean(options?.preservePhoneSmsProvider);
+        LATEST_PHONE_SETTING_KEYS.forEach((key) => {
+          if (preservePhoneSmsProvider && key === 'phoneSmsProvider') {
+            return;
+          }
+          if (Object.prototype.hasOwnProperty.call(latestState, key)) {
+            mergedState[key] = latestState[key];
+          }
+        });
+        mergedState.heroSmsOperator = normalizeHeroSmsOperator(
+          mergedState.heroSmsOperator,
+          DEFAULT_HERO_SMS_OPERATOR
+        );
+        return mergedState;
+      } catch (_) {
+        return state || {};
+      }
     }
 
     function parseActivationPayload(payload, fallback = null) {
@@ -2537,6 +2637,10 @@
         service: HERO_SMS_SERVICE_CODE,
         country: countryConfig.id,
       };
+      const operator = normalizeHeroSmsOperator(config?.operator, DEFAULT_HERO_SMS_OPERATOR);
+      if (operator && operator !== DEFAULT_HERO_SMS_OPERATOR) {
+        query.operator = operator;
+      }
       if (options.maxPrice !== null && options.maxPrice !== undefined) {
         query.maxPrice = options.maxPrice;
         if (options.fixedPrice !== false) {
@@ -3584,6 +3688,9 @@
     }
 
     async function requestPhoneActivation(state = {}, options = {}) {
+      state = await mergeLatestPhoneSettingsState(state, {
+        preservePhoneSmsProvider: Boolean(options?.preservePhoneSmsProvider),
+      });
       if (normalizePhoneSmsProvider(state?.phoneSmsProvider) === PHONE_SMS_PROVIDER_FIVE_SIM) {
         const provider = getFiveSimProviderForState(state);
         if (provider) {
@@ -3931,11 +4038,12 @@
       if (getActivationProviderId(normalizedActivation, state) === PHONE_SMS_PROVIDER_FIVE_SIM) {
         const provider = getFiveSimProviderForState(state);
         if (provider) {
-          return provider.reuseActivation(state, normalizedActivation);
+          return provider.reuseActivation(scopeStateToActivationProvider(state, normalizedActivation), normalizedActivation);
         }
       }
 
-      const config = resolvePhoneConfig(state);
+      const scopedState = scopeStateToActivationProvider(state, normalizedActivation);
+      const config = resolvePhoneConfig(scopedState);
       if (config.provider === PHONE_SMS_PROVIDER_5SIM) {
         const payload = await fetchFiveSimPayload(
           config,
@@ -3980,7 +4088,7 @@
         );
         return `free reuse setStatus(${normalizedStatus}) skipped`;
       }
-      const config = resolvePhoneConfig(state);
+      const config = resolvePhoneConfig(scopeStateToActivationProvider(state, normalizedActivation));
       if (config.provider === PHONE_SMS_PROVIDER_5SIM) {
         const endpoint = normalizedStatus === 6
           ? `/user/finish/${normalizedActivation.activationId}`
@@ -4029,7 +4137,7 @@
       if (getActivationProviderId(activation, state) === PHONE_SMS_PROVIDER_FIVE_SIM) {
         const provider = getFiveSimProviderForState(state);
         if (provider) {
-          await provider.finishActivation(state, activation);
+          await provider.finishActivation(scopeStateToActivationProvider(state, activation), activation);
           return;
         }
       }
@@ -4050,7 +4158,7 @@
         if (getActivationProviderId(activation, state) === PHONE_SMS_PROVIDER_FIVE_SIM) {
           const provider = getFiveSimProviderForState(state);
           if (provider) {
-            await provider.cancelActivation(state, activation);
+            await provider.cancelActivation(scopeStateToActivationProvider(state, activation), activation);
             return;
           }
         }
@@ -4151,7 +4259,7 @@
         if (getActivationProviderId(activation, state) === PHONE_SMS_PROVIDER_FIVE_SIM) {
           const provider = getFiveSimProviderForState(state);
           if (provider) {
-            await provider.banActivation(state, activation);
+            await provider.banActivation(scopeStateToActivationProvider(state, activation), activation);
             return;
           }
         }
@@ -4162,7 +4270,7 @@
     }
 
     async function requestAdditionalPhoneSms(state = {}, activation) {
-      const config = resolvePhoneConfig(state);
+      const config = resolvePhoneConfig(scopeStateToActivationProvider(state, activation));
       if (config.provider !== PHONE_SMS_PROVIDER_HERO) {
         return;
       }
@@ -4342,12 +4450,13 @@
       if (getActivationProviderId(normalizedActivation, state) === PHONE_SMS_PROVIDER_FIVE_SIM) {
         const provider = getFiveSimProviderForState(state);
         if (provider) {
-          return provider.pollActivationCode(state, normalizedActivation, options);
+          return provider.pollActivationCode(scopeStateToActivationProvider(state, normalizedActivation), normalizedActivation, options);
         }
       }
       const statusAction = resolveActivationStatusAction(normalizedActivation);
 
-      const config = resolvePhoneConfig(state);
+      const scopedState = scopeStateToActivationProvider(state, normalizedActivation);
+      const config = resolvePhoneConfig(scopedState);
       const configuredTimeoutMs = Math.max(1000, Number(options.timeoutMs) || 0);
       const timeoutMs = configuredTimeoutMs || (
         typeof getOAuthFlowStepTimeoutMs === 'function'
@@ -5101,6 +5210,7 @@
     }
 
     async function acquirePhoneActivation(state = {}, options = {}) {
+      state = await mergeLatestPhoneSettingsState(state);
       const provider = normalizePhoneSmsProvider(state?.phoneSmsProvider || DEFAULT_PHONE_SMS_PROVIDER);
       const providerOrder = resolvePhoneProviderOrder(state, provider);
       const countryCandidates = resolveCountryCandidatesForProvider(state, provider);
@@ -5261,6 +5371,7 @@
             {
               blockedCountryIds: useBlockedCountryIds,
               countryPriceFloorByCountryId: useCountryPriceFloorByCountryId,
+              preservePhoneSmsProvider: true,
             }
           );
           const providerLabel = getPhoneSmsProviderLabel(providerCandidate);

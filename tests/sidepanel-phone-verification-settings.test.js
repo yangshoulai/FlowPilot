@@ -95,6 +95,8 @@ test('sidepanel html exposes phone verification toggle and multi-provider SMS ro
   assert.match(html, /id="row-hero-sms-country-fallback"/);
   assert.match(html, /id="row-hero-sms-acquire-priority"/);
   assert.match(html, /id="select-hero-sms-acquire-priority"/);
+  assert.match(html, /id="row-hero-sms-operator"/);
+  assert.match(html, /id="select-hero-sms-operator"/);
   assert.match(html, /id="select-hero-sms-country"[^>]*multiple/);
   assert.doesNotMatch(html, /id="select-hero-sms-country-fallback"/);
   assert.match(html, /id="row-hero-sms-api-key"/);
@@ -660,6 +662,7 @@ const rowHeroSmsPlatform = { style: { display: 'none' } };
 const rowHeroSmsCountry = { style: { display: 'none' } };
 const rowHeroSmsCountryFallback = { style: { display: 'none' } };
 const rowHeroSmsAcquirePriority = { style: { display: 'none' } };
+const rowHeroSmsOperator = { style: { display: 'none' } };
 const rowHeroSmsApiKey = { style: { display: 'none' } };
 const rowHeroSmsMaxPrice = { style: { display: 'none' } };
 const rowFiveSimApiKey = { style: { display: 'none' } };
@@ -741,6 +744,7 @@ return {
   rowHeroSmsCountry,
   rowHeroSmsCountryFallback,
   rowHeroSmsAcquirePriority,
+  rowHeroSmsOperator,
   rowHeroSmsApiKey,
   rowHeroSmsMaxPrice,
   rowFiveSimApiKey,
@@ -795,6 +799,7 @@ return {
   assert.equal(api.rowHeroSmsCountry.style.display, 'none');
   assert.equal(api.rowHeroSmsCountryFallback.style.display, 'none');
   assert.equal(api.rowHeroSmsAcquirePriority.style.display, 'none');
+  assert.equal(api.rowHeroSmsOperator.style.display, 'none');
   assert.equal(api.rowHeroSmsApiKey.style.display, 'none');
   assert.equal(api.rowHeroSmsMaxPrice.style.display, 'none');
   assert.equal(api.rowFiveSimOperator.style.display, 'none');
@@ -845,6 +850,7 @@ return {
   assert.equal(api.rowHeroSmsCountry.style.display, '');
   assert.equal(api.rowHeroSmsCountryFallback.style.display, '');
   assert.equal(api.rowHeroSmsAcquirePriority.style.display, '');
+  assert.equal(api.rowHeroSmsOperator.style.display, '');
   assert.equal(api.rowHeroSmsApiKey.style.display, '');
   assert.equal(api.rowHeroSmsMaxPrice.style.display, '');
   assert.equal(api.rowFiveSimOperator.style.display, 'none');
@@ -1001,6 +1007,7 @@ const inputNexSmsApiKey = { value: 'nex-key' };
 const inputNexSmsServiceCode = { value: 'ot' };
 const inputHeroSmsReuseEnabled = { checked: true };
 const selectHeroSmsAcquirePriority = { value: 'price' };
+const selectHeroSmsOperator = { value: 'AIS!!' };
 function getSelectedPhonePreferredActivation() {
   return {
     provider: 'hero-sms',
@@ -1039,6 +1046,7 @@ const DEFAULT_HERO_SMS_REUSE_ENABLED = true;
 const HERO_SMS_ACQUIRE_PRIORITY_COUNTRY = 'country';
 const HERO_SMS_ACQUIRE_PRIORITY_PRICE = 'price';
 const DEFAULT_HERO_SMS_ACQUIRE_PRIORITY = HERO_SMS_ACQUIRE_PRIORITY_COUNTRY;
+const DEFAULT_HERO_SMS_OPERATOR = 'any';
 const PHONE_REPLACEMENT_LIMIT_MIN = 1;
 const PHONE_REPLACEMENT_LIMIT_MAX = 20;
 const DEFAULT_HERO_SMS_COUNTRY_ID = 52;
@@ -1101,6 +1109,7 @@ ${extractFunction('normalizeFiveSimCountryFallbackList')}
 ${extractFunction('normalizePhoneSmsMaxPriceValue')}
 ${extractFunction('normalizePhoneSmsMinPriceValue')}
 ${extractFunction('normalizeHeroSmsMaxPriceValue')}
+${extractFunction('normalizeHeroSmsOperatorValue')}
 ${extractFunction('normalizePhoneVerificationReplacementLimit')}
 ${extractFunction('normalizePhoneCodeWaitSecondsValue')}
 ${extractFunction('normalizePhoneCodeTimeoutWindowsValue')}
@@ -1153,6 +1162,7 @@ return { collectSettingsPayload };
   assert.equal(payload.freePhoneReuseEnabled, false);
   assert.equal(payload.freePhoneReuseAutoEnabled, false);
   assert.equal(payload.heroSmsAcquirePriority, 'price');
+  assert.equal(payload.heroSmsOperator, 'ais');
   assert.equal(payload.heroSmsMinPrice, '0.03');
   assert.equal(payload.heroSmsMaxPrice, '0.12');
   assert.equal(payload.heroSmsPreferredPrice, '0.0512');
@@ -1201,6 +1211,7 @@ const PHONE_SMS_PROVIDER_FIVE_SIM = '5sim';
 const DEFAULT_FIVE_SIM_COUNTRY_ID = 'vietnam';
 const DEFAULT_FIVE_SIM_COUNTRY_LABEL = '越南 (Vietnam)';
 const DEFAULT_FIVE_SIM_OPERATOR = 'any';
+const DEFAULT_HERO_SMS_OPERATOR = 'any';
 const DEFAULT_HERO_SMS_COUNTRY_ID = 52;
 const DEFAULT_HERO_SMS_COUNTRY_LABEL = 'Thailand';
 const FIVE_SIM_SUPPORTED_COUNTRY_ID_SET = new Set(['indonesia', 'thailand', 'vietnam']);
@@ -1210,6 +1221,7 @@ const inputHeroSmsApiKey = { value: 'hero-live' };
 const inputHeroSmsMinPrice = { value: '0.03' };
 const inputHeroSmsMaxPrice = { value: '0.22' };
 const inputFiveSimOperator = { value: 'any' };
+const selectHeroSmsOperator = { value: 'ais', options: [{ value: 'any' }, { value: 'ais' }] };
 const displayHeroSmsPriceTiers = { textContent: '' };
 const displayPhoneSmsBalance = { textContent: '' };
 const rowHeroSmsPriceTiers = { style: { display: '' } };
@@ -1229,6 +1241,7 @@ ${extractFunction('normalizePhoneSmsMinPriceValue')}
 ${extractFunction('normalizePhoneSmsMaxPriceValue')}
 ${extractFunction('normalizeHeroSmsCountryId')}
 ${extractFunction('normalizeHeroSmsCountryLabel')}
+${extractFunction('normalizeHeroSmsOperatorValue')}
 ${extractFunction('normalizeHeroSmsCountryFallbackList')}
 ${extractFunction('normalizeFiveSimCountryFallbackList')}
 function getSelectedHeroSmsCountryOption() {
@@ -1244,6 +1257,8 @@ function syncHeroSmsFallbackSelectionOrderFromSelect() {
 function syncLatestState(patch) { latestState = { ...latestState, ...patch }; }
 function loadHeroSmsCountries() { return Promise.resolve(); }
 function applyHeroSmsFallbackSelection() {}
+function setHeroSmsOperatorSelectValue(operator = latestState?.heroSmsOperator) { selectHeroSmsOperator.value = normalizeHeroSmsOperatorValue(operator); }
+function refreshHeroSmsOperatorOptions() { return Promise.resolve(); }
 function updatePhoneVerificationSettingsUI() {}
 function markSettingsDirty() {}
 function saveSettings() { savedPayload = { ...latestState }; return Promise.resolve(); }
@@ -1289,6 +1304,26 @@ return {
   assert.equal(api.savedPayload.fiveSimApiKey, 'five-live');
   assert.equal(api.savedPayload.heroSmsMinPrice, '0.03');
   assert.equal(api.savedPayload.fiveSimMinPrice, '0.88');
+});
+
+test('HeroSMS operator helpers normalize keyed operator payloads', () => {
+  const api = new Function(`
+const DEFAULT_HERO_SMS_OPERATOR = 'any';
+${extractFunction('normalizeHeroSmsOperatorValue')}
+${extractFunction('parseHeroSmsOperatorsPayload')}
+return { normalizeHeroSmsOperatorValue, parseHeroSmsOperatorsPayload };
+`)();
+
+  assert.equal(api.normalizeHeroSmsOperatorValue(' AIS!! '), 'ais');
+  assert.equal(api.normalizeHeroSmsOperatorValue('', 'dtac'), 'dtac');
+  const parsed = api.parseHeroSmsOperatorsPayload({
+    operators: {
+      52: [' AIS ', 'dtac', 'AIS'],
+      6: ['telkomsel'],
+    },
+  });
+  assert.deepStrictEqual(parsed.get('52'), ['ais', 'dtac']);
+  assert.deepStrictEqual(parsed.get('6'), ['telkomsel']);
 });
 
 test('formatPhoneSmsPriceEntriesSummary treats HeroSMS physicalCount=0 as out of stock even when count is positive', () => {
