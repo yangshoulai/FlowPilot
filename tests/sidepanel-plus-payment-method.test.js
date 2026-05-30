@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const sidepanelSource = fs.readFileSync('sidepanel/sidepanel.js', 'utf8');
+const sidepanelHtml = fs.readFileSync('sidepanel/sidepanel.html', 'utf8');
 
 function extractFunction(name) {
   const asyncStart = sidepanelSource.indexOf(`async function ${name}`);
@@ -60,6 +61,14 @@ function extractLastFunction(name) {
   }
   return sidepanelSource.slice(start, end);
 }
+
+test('sidepanel defaults Plus payment method to GPC', () => {
+  assert.match(sidepanelSource, /const DEFAULT_PLUS_PAYMENT_METHOD = PLUS_PAYMENT_METHOD_GPC_HELPER;/);
+  assert.match(sidepanelSource, /currentPlusPaymentMethod = DEFAULT_PLUS_PAYMENT_METHOD/);
+  assert.match(sidepanelSource, /state\?\.plusPaymentMethod \|\| DEFAULT_PLUS_PAYMENT_METHOD/);
+  assert.match(sidepanelHtml, /<option value="gpc-helper" selected>GPC<\/option>/);
+  assert.match(sidepanelHtml, /id="plus-payment-method-caption">GPC 网页充值链路<\/span>/);
+});
 
 test('sidepanel step definitions normalize legacy gopay payment method to PayPal', () => {
   const bundle = [

@@ -50,6 +50,11 @@ function extractFunction(name) {
   return source.slice(start, end);
 }
 
+test('background defaults Plus payment method to GPC', () => {
+  assert.match(source, /const DEFAULT_PLUS_PAYMENT_METHOD = PLUS_PAYMENT_METHOD_GPC_HELPER;/);
+  assert.match(source, /plusPaymentMethod: DEFAULT_PLUS_PAYMENT_METHOD/);
+});
+
 test('background account history settings are normalized independently from hotmail service mode', () => {
   const bundle = [
     extractFunction('normalizeCodex2ApiUrl'),

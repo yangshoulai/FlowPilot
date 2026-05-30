@@ -103,7 +103,7 @@ const PERSISTED_SETTING_DEFAULTS = {
   targetId: 'cpa',
   signupMethod: 'email',
   plusModeEnabled: false,
-  plusPaymentMethod: 'paypal',
+  plusPaymentMethod: 'gpc-helper',
   plusAccountAccessStrategy: 'oauth',
   phoneVerificationEnabled: false,
   mailProvider: '163',
