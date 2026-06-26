@@ -385,10 +385,10 @@ async function resendVerificationCode(step, timeout = 45000) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   if (step === 8) {
     await waitForLoginVerificationPageReady(10000, step);
   }
@@ -490,7 +490,7 @@ function getStep405RecoveryCount(step) {
     if (typeof sessionStorage !== 'undefined' && sessionStorage?.getItem) {
       value = sessionStorage.getItem(key) || '';
     }
-  } catch {}
+  } catch { }
   if (!value) {
     value = getStep405StorageScope()[key];
   }
@@ -504,7 +504,7 @@ function setStep405RecoveryCount(step, count) {
     if (typeof sessionStorage !== 'undefined' && sessionStorage?.setItem) {
       sessionStorage.setItem(key, value);
     }
-  } catch {}
+  } catch { }
   getStep405StorageScope()[key] = value;
 }
 
@@ -514,10 +514,10 @@ function clearStep405RecoveryCount(step) {
     if (typeof sessionStorage !== 'undefined' && sessionStorage?.removeItem) {
       sessionStorage.removeItem(key);
     }
-  } catch {}
+  } catch { }
   try {
     delete getStep405StorageScope()[key];
-  } catch {}
+  } catch { }
 }
 
 function createStep405RecoveryLimitError(step, count) {
@@ -905,9 +905,9 @@ function getSignupEntryDiagnostics() {
       : null;
     return rect
       ? {
-          width: Math.round(rect.width || 0),
-          height: Math.round(rect.height || 0),
-        }
+        width: Math.round(rect.width || 0),
+        height: Math.round(rect.height || 0),
+      }
       : null;
   };
   const buildVisibilityMeta = (el) => {
@@ -1046,9 +1046,9 @@ function getSignupPasswordDiagnostics() {
       : null;
     return rect
       ? {
-          width: Math.round(rect.width || 0),
-          height: Math.round(rect.height || 0),
-        }
+        width: Math.round(rect.width || 0),
+        height: Math.round(rect.height || 0),
+      }
       : null;
   };
   const buildInputSummary = (el) => {
@@ -1139,10 +1139,10 @@ async function waitForSignupEntryState(options = {}) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const {
     timeout = 15000,
     autoOpenEntry = false,
@@ -1303,10 +1303,10 @@ async function fillSignupEmailAndContinue(email, step) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   if (!email) throw new Error(`未提供邮箱地址，步骤 ${step} 无法继续。`);
   const normalizedEmail = String(email || '').trim().toLowerCase();
 
@@ -1831,10 +1831,10 @@ function findSignupPhoneCountryOptionByLabel(phoneInput, countryLabel) {
         .map((label) => normalizeSignupCountryLabel(label))
         .filter(Boolean);
       return normalizedLabels.some((optionLabel) => normalizedTargets.some((normalizedTarget) => (
-          optionLabel.length > 2
-          && normalizedTarget.length > 2
-          && (optionLabel.includes(normalizedTarget) || normalizedTarget.includes(optionLabel))
-        )));
+        optionLabel.length > 2
+        && normalizedTarget.length > 2
+        && (optionLabel.includes(normalizedTarget) || normalizedTarget.includes(optionLabel))
+      )));
     })
     || null;
 }
@@ -1876,10 +1876,10 @@ async function trySelectSignupPhoneCountryOption(select, targetOption, phoneInpu
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   if (!select || !targetOption) {
     return false;
   }
@@ -1954,10 +1954,10 @@ async function trySelectSignupPhoneCountryListboxOption(phoneInput, targetOption
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const button = getSignupPhoneCountryButton(phoneInput);
   if (!button) {
     return false;
@@ -2351,10 +2351,10 @@ async function fillLoginPhoneInputAndConfirm(phoneInput, options = {}) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const {
     phoneNumber = '',
     dialCode = '',
@@ -2452,10 +2452,10 @@ async function waitForSignupPhoneEntryState(options = {}) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const {
     timeout = 20000,
     step = 2,
@@ -2552,10 +2552,10 @@ async function submitSignupPhoneNumberAndContinue(payload = {}) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const phoneNumber = String(payload.phoneNumber || '').trim();
   const countryLabel = String(payload.countryLabel || '').trim();
   if (!phoneNumber) {
@@ -2673,10 +2673,10 @@ async function step3_fillEmailPassword(payload) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const { email, password } = payload;
   if (!password) throw new Error('未提供密码，步骤 3 需要可用密码。');
   const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -3867,10 +3867,10 @@ async function recoverCurrentAuthRetryPage(payload = {}) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const {
     flow = 'auth',
     logLabel = '',
@@ -4995,10 +4995,10 @@ async function triggerLoginSubmitAction(button, fallbackField) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
 
   await humanPause(400, 1100);
   await performOperationWithDelay({ stepKey: 'oauth-login', kind: 'submit', label: 'login-submit' }, async () => {
@@ -5135,10 +5135,10 @@ async function prepareSignupVerificationFlow(payload = {}, timeout = 30000) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const { password } = payload;
   const prepareSource = String(payload?.prepareSource || '').trim() || 'step4_execute';
   const prepareLogLabel = String(payload?.prepareLogLabel || '').trim()
@@ -5440,7 +5440,7 @@ function getVerificationSubmitButtonForTarget(codeInput, options = {}) {
     return Array.from(textCandidates).find((element) => {
       if (!isUsableAction(element)) return false;
       const text = getActionText(element);
-    return /verify|confirm|submit|continue|确认|验证|继续|確認|認証|検証|続行|続ける|次へ|送信/i.test(text);
+      return /verify|confirm|submit|continue|确认|验证|继续|確認|認証|検証|続行|続ける|次へ|送信/i.test(text);
     }) || null;
   };
 
@@ -5514,10 +5514,10 @@ async function fillVerificationCode(step, payload) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
 
   if (step === 4) {
     const postVerificationState = getStep4PostVerificationState();
@@ -5615,11 +5615,11 @@ async function fillVerificationCode(step, payload) {
         const targetInput = splitInputs[i];
         try {
           targetInput.focus?.();
-        } catch {}
+        } catch { }
         fillInput(splitInputs[i], code[i]);
         try {
           targetInput.dispatchEvent(new KeyboardEvent('keyup', { key: code[i], bubbles: true }));
-        } catch {}
+        } catch { }
       }
     });
     const filled = await waitForSplitVerificationInputsFilled(splitInputs, code, 2500);
@@ -6089,86 +6089,117 @@ async function resolveChooseAccountTransitionResult(snapshot, payload, visibleSt
   return null;
 }
 
+function findChooseAccountExistingSessionButton({ allowDisabled = false } = {}) {
+  const candidates = Array.from(document.querySelectorAll(
+    'button[name="session_id"], button[data-dd-action-name], button'
+  ));
+  return candidates.find((el) => {
+    if (!isVisibleElement(el)) return false;
+    if (!allowDisabled && !isActionEnabled(el)) return false;
+    const ddActionName = String(el.getAttribute?.('data-dd-action-name') || '').trim().toLowerCase();
+    const name = String(el.getAttribute?.('name') || '').trim().toLowerCase();
+    const value = String(el.getAttribute?.('value') || '').trim();
+    const text = getActionText(el);
+    return (
+      ddActionName === 'select existing session'
+      || (name === 'session_id' && Boolean(value))
+      || (/选择帐户|选择账户|select\s+account|欢迎回来|welcome\s+back/i.test(text) && Boolean(value))
+    );
+  }) || null;
+}
+
 async function step6ChooseExistingAccount(payload, snapshot) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const visibleStep = Math.floor(Number(payload?.visibleStep) || 0) || 7;
   const currentSnapshot = normalizeStep6Snapshot(snapshot || inspectLoginAuthState());
+
   const loginIdentifierType = String(payload?.loginIdentifierType || '').trim();
   if (loginIdentifierType === 'phone') {
-    return createStep6RecoverableResult('choose_account_requires_email_identifier', currentSnapshot, {
-      message: 'OpenAI choose-account page requires an email account card; current login identifier is phone.',
-    });
-  }
-
-  const email = normalizeAuthAccountIdentifier(payload?.email || payload?.accountIdentifier || '');
-  if (!email || !email.includes('@')) {
-    return createStep6RecoverableResult('missing_choose_account_email', currentSnapshot, {
-      message: 'OpenAI choose-account page is visible, but the target email is missing.',
-    });
-  }
-
-  const chooseAccountAction = await resolveChooseAccountAction(email);
-  if (
-    chooseAccountAction.snapshot
-    && chooseAccountAction.snapshot.state !== 'unknown'
-    && chooseAccountAction.snapshot.state !== 'choose_account_page'
-  ) {
-    const routedResult = await resolveChooseAccountTransitionResult(
-      chooseAccountAction.snapshot,
-      payload,
-      visibleStep
-    );
-    if (routedResult) return routedResult;
-  }
-
-  const target = chooseAccountAction.target;
-  if (!target) {
-    const otherAccountButton = chooseAccountAction.otherAccountButton;
-    if (otherAccountButton) {
-      const listedEmails = getChooseAccountListedEmails();
-      const listedLabel = listedEmails.length ? `页面已有账号：${listedEmails.join(', ')}。` : '页面未读取到已有账号邮箱。';
-      log(`OpenAI 选择账号页未列出目标邮箱 ${email}，${listedLabel} 将点击“登录至另一个帐户”继续目标邮箱登录。`, 'warn', { step: visibleStep, stepKey: 'oauth-login' });
-      await humanPause(350, 900);
-      await performOperationWithDelay({ stepKey: 'oauth-login', kind: 'click', label: 'choose-other-account' }, async () => {
-        simulateClick(otherAccountButton);
-      });
-      const otherAccountSnapshot = normalizeStep6Snapshot(await waitForChooseAccountTransition(15000));
-      const otherAccountRoutedResult = await resolveChooseAccountTransitionResult(
-        otherAccountSnapshot,
-        payload,
-        visibleStep,
-        {
-          oauthConsentVia: 'choose_other_account_oauth_consent_page',
-          oauthAuthorizationVia: 'choose_other_account_oauth_authorization_route',
-          addEmailVia: 'choose_other_account_add_email_page',
-          addPhoneVia: 'choose_other_account_add_phone_page',
-          verificationVia: 'choose_other_account_verification_page',
-          phoneVerificationVia: 'choose_other_account_phone_verification_page',
-          timeoutReason: 'login_timeout_after_choose_other_account',
-          timeoutMessage: 'Clicking another-account login from OpenAI choose-account entered the login timeout page.',
-        }
-      );
-      if (otherAccountRoutedResult) return otherAccountRoutedResult;
-      return createStep6RecoverableResult('choose_account_other_account_transition_stalled', otherAccountSnapshot, {
-        message: `Clicked another-account login because ${email} was not listed, but the page did not enter a supported login state.`,
+    const existingSessionButton = currentSnapshot.existingSessionButton || findChooseAccountExistingSessionButton();
+    if (!existingSessionButton || !isActionEnabled(existingSessionButton)) {
+      return createStep6RecoverableResult('missing_existing_session_button', currentSnapshot, {
+        message: '当前已有账号选择页没有可点击的账号按钮。',
       });
     }
-    return createStep6RecoverableResult('choose_account_target_not_found', currentSnapshot, {
-      message: `OpenAI choose-account page does not contain target email ${email}.`,
+    log('检测到已有账号选择页，优先点击已有账号继续登录。', 'info', { step: visibleStep, stepKey: 'oauth-login' });
+    await humanPause(350, 900);
+    await performOperationWithDelay({ stepKey: 'oauth-login', kind: 'click', label: 'select-existing-session' }, async () => {
+      simulateClick(existingSessionButton);
+    });
+    // return createStep6RecoverableResult('choose_account_requires_email_identifier', currentSnapshot, {
+    //   message: 'OpenAI choose-account page requires an email account card; current login identifier is phone.',
+    // });
+  } else {
+    const email = normalizeAuthAccountIdentifier(payload?.email || payload?.accountIdentifier || '');
+    if (!email || !email.includes('@')) {
+      return createStep6RecoverableResult('missing_choose_account_email', currentSnapshot, {
+        message: 'OpenAI choose-account page is visible, but the target email is missing.',
+      });
+    }
+
+    const chooseAccountAction = await resolveChooseAccountAction(email);
+    if (
+      chooseAccountAction.snapshot
+      && chooseAccountAction.snapshot.state !== 'unknown'
+      && chooseAccountAction.snapshot.state !== 'choose_account_page'
+    ) {
+      const routedResult = await resolveChooseAccountTransitionResult(
+        chooseAccountAction.snapshot,
+        payload,
+        visibleStep
+      );
+      if (routedResult) return routedResult;
+    }
+
+    const target = chooseAccountAction.target;
+    if (!target) {
+      const otherAccountButton = chooseAccountAction.otherAccountButton;
+      if (otherAccountButton) {
+        const listedEmails = getChooseAccountListedEmails();
+        const listedLabel = listedEmails.length ? `页面已有账号：${listedEmails.join(', ')}。` : '页面未读取到已有账号邮箱。';
+        log(`OpenAI 选择账号页未列出目标邮箱 ${email}，${listedLabel} 将点击“登录至另一个帐户”继续目标邮箱登录。`, 'warn', { step: visibleStep, stepKey: 'oauth-login' });
+        await humanPause(350, 900);
+        await performOperationWithDelay({ stepKey: 'oauth-login', kind: 'click', label: 'choose-other-account' }, async () => {
+          simulateClick(otherAccountButton);
+        });
+        const otherAccountSnapshot = normalizeStep6Snapshot(await waitForChooseAccountTransition(15000));
+        const otherAccountRoutedResult = await resolveChooseAccountTransitionResult(
+          otherAccountSnapshot,
+          payload,
+          visibleStep,
+          {
+            oauthConsentVia: 'choose_other_account_oauth_consent_page',
+            oauthAuthorizationVia: 'choose_other_account_oauth_authorization_route',
+            addEmailVia: 'choose_other_account_add_email_page',
+            addPhoneVia: 'choose_other_account_add_phone_page',
+            verificationVia: 'choose_other_account_verification_page',
+            phoneVerificationVia: 'choose_other_account_phone_verification_page',
+            timeoutReason: 'login_timeout_after_choose_other_account',
+            timeoutMessage: 'Clicking another-account login from OpenAI choose-account entered the login timeout page.',
+          }
+        );
+        if (otherAccountRoutedResult) return otherAccountRoutedResult;
+        return createStep6RecoverableResult('choose_account_other_account_transition_stalled', otherAccountSnapshot, {
+          message: `Clicked another-account login because ${email} was not listed, but the page did not enter a supported login state.`,
+        });
+      }
+      return createStep6RecoverableResult('choose_account_target_not_found', currentSnapshot, {
+        message: `OpenAI choose-account page does not contain target email ${email}.`,
+      });
+    }
+
+    log(`Detected OpenAI choose-account page, selecting ${email}...`, 'info', { step: visibleStep, stepKey: 'oauth-login' });
+    await humanPause(350, 900);
+    await performOperationWithDelay({ stepKey: 'oauth-login', kind: 'click', label: 'choose-existing-account' }, async () => {
+      simulateClick(target);
     });
   }
-
-  log(`Detected OpenAI choose-account page, selecting ${email}...`, 'info', { step: visibleStep, stepKey: 'oauth-login' });
-  await humanPause(350, 900);
-  await performOperationWithDelay({ stepKey: 'oauth-login', kind: 'click', label: 'choose-existing-account' }, async () => {
-    simulateClick(target);
-  });
 
   const nextSnapshot = normalizeStep6Snapshot(await waitForChooseAccountTransition(15000));
   const routedResult = await resolveChooseAccountTransitionResult(nextSnapshot, payload, visibleStep);
@@ -6199,10 +6230,10 @@ async function step6OpenLoginEntry(payload, snapshot) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const visibleStep = Math.floor(Number(payload?.visibleStep) || 0) || 7;
   const currentSnapshot = normalizeStep6Snapshot(snapshot || inspectLoginAuthState());
   const preferPhoneLogin = String(payload?.loginIdentifierType || '').trim() === 'phone' || (!payload?.email && payload?.phoneNumber);
@@ -6276,10 +6307,10 @@ async function step6SwitchToOneTimeCodeLogin(payload, snapshot) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const visibleStep = Math.floor(Number(payload?.visibleStep) || 0) || 7;
   const switchTrigger = snapshot?.switchTrigger || findOneTimeCodeLoginTrigger();
   if (!switchTrigger || !isActionEnabled(switchTrigger)) {
@@ -6323,10 +6354,10 @@ async function step6LoginFromPhonePage(payload, snapshot) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const visibleStep = Math.floor(Number(payload?.visibleStep) || 0) || 7;
   const currentSnapshot = normalizeStep6Snapshot(snapshot || inspectLoginAuthState());
   const phoneInput = currentSnapshot.phoneInput || getLoginPhoneInput();
@@ -6443,10 +6474,10 @@ async function switchFromEmailPageToPhoneLogin(payload, snapshot) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const visibleStep = Math.floor(Number(payload?.visibleStep) || 0) || 7;
   let currentSnapshot = normalizeStep6Snapshot(snapshot || inspectLoginAuthState());
   let phoneEntryTrigger = currentSnapshot.phoneEntryTrigger || findLoginPhoneEntryTrigger();
@@ -6529,10 +6560,10 @@ async function step6LoginFromPasswordPage(payload, snapshot) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const visibleStep = Math.floor(Number(payload?.visibleStep) || 0) || 7;
   const currentSnapshot = normalizeStep6Snapshot(snapshot || inspectLoginAuthState());
   const hasPassword = Boolean(String(payload?.password || '').trim());
@@ -6607,10 +6638,10 @@ async function step6LoginFromEmailPage(payload, snapshot) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const visibleStep = Math.floor(Number(payload?.visibleStep) || 0) || 7;
   const currentSnapshot = normalizeStep6Snapshot(snapshot || inspectLoginAuthState());
   if (String(payload?.loginIdentifierType || '').trim() === 'phone' && payload?.phoneNumber) {
@@ -6843,10 +6874,10 @@ async function submitAddEmailAndContinue(payload = {}) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
   const email = String(payload.email || '').trim().toLowerCase();
   if (!email) {
     throw new Error('未提供邮箱地址，无法添加邮箱。');
@@ -7250,15 +7281,15 @@ function getStep5PasskeySkipButton() {
     const text = typeof getActionText === 'function'
       ? getActionText(el)
       : [
-          el?.textContent,
-          el?.value,
-          el?.getAttribute?.('aria-label'),
-          el?.getAttribute?.('title'),
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .replace(/\s+/g, ' ')
-          .trim();
+        el?.textContent,
+        el?.value,
+        el?.getAttribute?.('aria-label'),
+        el?.getAttribute?.('title'),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
     return /^(跳过|skip)$/i.test(String(text || '').trim());
   }) || null;
 }
@@ -7512,19 +7543,19 @@ async function recoverStep5SubmitRetryPage(payload = {}) {
 
 function installStep5NavigationCompletionReporter(completeOnce) {
   if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') {
-    return () => {};
+    return () => { };
   }
   let reportedNavigation = false;
   const debugLog = typeof logStep5SubmitDebug === 'function'
     ? logStep5SubmitDebug
     : (message, options = {}) => {
-        if (typeof log === 'function') {
-          log(`步骤 5 [调试] ${message}`, options?.level || 'info', {
-            step: 5,
-            stepKey: 'fill-profile',
-          });
-        }
-      };
+      if (typeof log === 'function') {
+        log(`步骤 5 [调试] ${message}`, options?.level || 'info', {
+          step: 5,
+          stepKey: 'fill-profile',
+        });
+      }
+    };
 
   const onNavigationStarted = (event) => {
     const eventType = String(event?.type || 'navigation').trim() || 'navigation';
@@ -7565,13 +7596,13 @@ async function waitForStep5SubmitOutcome(options = {}) {
   const debugLog = typeof logStep5SubmitDebug === 'function'
     ? logStep5SubmitDebug
     : (message, logOptions = {}) => {
-        if (typeof log === 'function') {
-          log(`步骤 5 [调试] ${message}`, logOptions?.level || 'info', {
-            step: 5,
-            stepKey: 'fill-profile',
-          });
-        }
-      };
+      if (typeof log === 'function') {
+        log(`步骤 5 [调试] ${message}`, logOptions?.level || 'info', {
+          step: 5,
+          stepKey: 'fill-profile',
+        });
+      }
+    };
   const {
     timeoutMs = 120000,
     maxAuthRetryRecoveries = 2,
@@ -7696,10 +7727,10 @@ async function step5_fillNameBirthday(payload) {
   const performOperationWithDelay = typeof getOperationDelayRunner === 'function'
     ? getOperationDelayRunner()
     : async (metadata, operation) => {
-        const rootScope = typeof window !== 'undefined' ? window : globalThis;
-        const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
-        return typeof gate === 'function' ? gate(metadata, operation) : operation();
-      };
+      const rootScope = typeof window !== 'undefined' ? window : globalThis;
+      const gate = rootScope?.CodexOperationDelay?.performOperationWithDelay;
+      return typeof gate === 'function' ? gate(metadata, operation) : operation();
+    };
 
   const resolvedAge = age ?? (year ? new Date().getFullYear() - Number(year) : null);
   const hasBirthdayData = [year, month, day].every(value => value != null && !Number.isNaN(Number(value)));
@@ -7944,13 +7975,13 @@ async function step5_fillNameBirthday(payload) {
   const debugLog = typeof logStep5SubmitDebug === 'function'
     ? logStep5SubmitDebug
     : (message, logOptions = {}) => {
-        if (typeof log === 'function') {
-          log(`步骤 5 [调试] ${message}`, logOptions?.level || 'info', {
-            step: 5,
-            stepKey: 'fill-profile',
-          });
-        }
-      };
+      if (typeof log === 'function') {
+        log(`步骤 5 [调试] ${message}`, logOptions?.level || 'info', {
+          step: 5,
+          stepKey: 'fill-profile',
+        });
+      }
+    };
   function completeStep5Once(extra = {}) {
     const completionReason = extra?.outcome?.state
       || (extra?.navigationStarted ? `navigation_started:${extra?.navigationEventType || 'unknown'}` : 'direct_completion');
